@@ -1,0 +1,9 @@
+// Oyunda görünen metinler (Türkçe). Anahtarlar koddan kullanılır; metinler burada değiştirilir.
+{
+    "window_title": "Proje — test sürümü",
+    "demo_title": "Aşama 0: Motorun temeli",
+    "demo_subtitle": "Vektör çizim, yumuşak degradeler, kenar yumuşatma ve Türkçe yazı",
+    "demo_help": "F11: tam ekran  ·  Esc: çıkış  ·  ← →: çizimi kaydır",
+    "demo_fps": "{fps} kare/sn",
+    "demo_sample_text": "Pijamalı hasta yağız şoföre çabucak güvendi. Çağlar boyu İğdır'dan Ödemiş'e uzanan yolda, küçük bir sınır beyi ordusunu topluyordu.",
+}

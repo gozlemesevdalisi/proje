@@ -5,11 +5,18 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 publish.workspace = true
+build = "build.rs"
+
+[[bin]]
+name = "oyun"
+path = "src/main.rs"
 
 [dependencies]
 engine.workspace = true
-sim.workspace = true
 log.workspace = true
+ron.workspace = true
+serde.workspace = true
+sim.workspace = true
 
 [lints]
 workspace = true
