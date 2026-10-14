@@ -748,7 +748,7 @@ pub fn request_adapter(
 }
 
 fn unpremultiply(image: &mut RgbaImage) {
-    for px in image.data.chunks_exact_mut(4) {
+    for px in image.data.as_chunks_mut::<4>().0 {
         let a = px[3];
         if a == 0 || a == 255 {
             continue;

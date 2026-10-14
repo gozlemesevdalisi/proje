@@ -59,8 +59,8 @@ impl RgbaImage {
 
     pub fn filled(width: u32, height: u32, rgba: [u8; 4]) -> Self {
         let mut img = RgbaImage::new(width, height);
-        for px in img.data.chunks_exact_mut(4) {
-            px.copy_from_slice(&rgba);
+        for px in img.data.as_chunks_mut::<4>().0 {
+            *px = rgba;
         }
         img
     }
@@ -118,7 +118,9 @@ impl RgbaImage {
         let data = match (info.color_type, info.bit_depth) {
             (png::ColorType::Rgba, png::BitDepth::Eight) => buf,
             (png::ColorType::Rgb, png::BitDepth::Eight) => buf
-                .chunks_exact(3)
+                .as_chunks::<3>()
+                .0
+                .iter()
                 .flat_map(|p| [p[0], p[1], p[2], 255])
                 .collect(),
             (other, depth) => {
@@ -186,8 +188,10 @@ pub fn compare(
     let mut sum = 0u64;
     for (i, (a, b)) in expected
         .data
-        .chunks_exact(4)
-        .zip(actual.data.chunks_exact(4))
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .zip(actual.data.as_chunks::<4>().0)
         .enumerate()
     {
         let d = (0..4).map(|c| a[c].abs_diff(b[c])).max().unwrap_or(0);

@@ -79,7 +79,9 @@ impl Mesh {
     /// Üçgenlerin toplam alanı (testler için).
     pub fn area(&self) -> f32 {
         self.indices
-            .chunks_exact(3)
+            .as_chunks::<3>()
+            .0
+            .iter()
             .map(|t| {
                 let [a, b, c] =
                     [t[0], t[1], t[2]].map(|i| Vec2::from(self.vertices[i as usize].position));

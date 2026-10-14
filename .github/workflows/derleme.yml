@@ -26,8 +26,9 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y mesa-vulkan-drivers libvulkan1 libx11-dev libxkbcommon-dev libwayland-dev
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@master
         with:
+          toolchain: "1.99.0"
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
       - name: Biçim
@@ -61,7 +62,10 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.99.0"
+          targets: x86_64-pc-windows-msvc
       - uses: Swatinem/rust-cache@v2
       - name: Testler (yazılımla çalışan grafik kartıyla)
         run: cargo test --workspace
