@@ -11,6 +11,7 @@ Durum: **erken geliştirme**. Yapılanlar ve sıradakiler: [docs/YOL_HARITASI.md
 ## Belgeler
 
 - [Tasarım](docs/TASARIM.md)
+- [Sanat rehberi](docs/SANAT.md)
 - [Motor](docs/MOTOR.md)
 - [Yol haritası](docs/YOL_HARITASI.md)
 - [Geliştirme](GELISTIRME.md)

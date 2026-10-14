@@ -3,6 +3,7 @@
 ## Belgeler
 
 - [docs/TASARIM.md](docs/TASARIM.md): oyunun tasarımı
+- [docs/SANAT.md](docs/SANAT.md): sanat rehberi; her yeni çizimden önce okunur
 - [docs/MOTOR.md](docs/MOTOR.md): motorun kararları ve yapısı
 - [docs/YOL_HARITASI.md](docs/YOL_HARITASI.md): aşamalar ve yapılacaklar
 - [docs/gunluk/](docs/gunluk/): geliştirme günlüğü; her çalışma gününün sonunda ne yapıldığı,
