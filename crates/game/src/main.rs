@@ -1,0 +1,3 @@
+//! Oyunun kendisi.
+
+fn main() {}
