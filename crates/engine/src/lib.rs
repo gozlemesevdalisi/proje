@@ -2,6 +2,7 @@
 //!
 //! Motor oyun kuralı bilmez. Ayrıntılı açıklama: `docs/MOTOR.md`.
 
+pub mod app;
 pub mod assets;
 pub mod color;
 pub mod image;
