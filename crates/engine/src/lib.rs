@@ -12,6 +12,7 @@ pub mod shape;
 pub mod snapshot;
 pub mod svg;
 pub mod tessellate;
+pub mod text;
 pub mod time;
 pub mod viewport;
 
