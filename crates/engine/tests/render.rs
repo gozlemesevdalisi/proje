@@ -153,7 +153,9 @@ fn edges_are_antialiased() {
     let img = r.render_to_image(&small_viewport(), &list).unwrap();
     let partial = img
         .data
-        .chunks_exact(4)
+        .as_chunks::<4>()
+        .0
+        .iter()
         .filter(|p| p[0] > 10 && p[0] < 245)
         .count();
     assert!(

@@ -64,7 +64,7 @@ fn start() -> Result<(), Box<dyn Error>> {
     };
     run(
         config,
-        Box::new(move |renderer: &mut Renderer| Ok(DemoScene::new(renderer, &assets)?)),
+        Box::new(move |renderer: &mut Renderer| DemoScene::new(renderer, &assets)),
     )?;
     Ok(())
 }
