@@ -7,6 +7,7 @@ pub mod color;
 pub mod image;
 pub mod input;
 pub mod paint;
+pub mod render;
 pub mod shape;
 pub mod snapshot;
 pub mod tessellate;
