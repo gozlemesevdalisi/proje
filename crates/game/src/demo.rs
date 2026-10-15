@@ -248,8 +248,9 @@ impl DemoScene {
             });
         }
 
-        let cream = Color::from_hex("#FFF6D2")?;
-        let parchment = Color::from_hex("#F1E3C2")?;
+        // Paletten: badana ve parşömen-açık (bkz. tools/art/palet.txt).
+        let cream = Color::from_hex("#FFFFCC")?;
+        let parchment = Color::from_hex("#EBE1D8")?;
         let labels = vec![
             Label {
                 mesh: text_mesh(
@@ -372,7 +373,8 @@ impl Game for DemoScene {
     fn draw(&mut self, renderer: &mut Renderer, frame: &FrameInfo) -> DrawList {
         let camera = self.previous_camera + (self.camera - self.previous_camera) * frame.alpha;
         let time = (self.tick as f32 + frame.alpha) / sim::TICKS_PER_SECOND as f32;
-        let mut list = DrawList::new(Color::from_hex("#1B4A9E").unwrap_or(Color::BLACK));
+        // Paletten: gök-tepe.
+        let mut list = DrawList::new(Color::from_hex("#00359B").unwrap_or(Color::BLACK));
         let layer_at = |parallax: f32| {
             Affine2::from_translation(self.layer_origin - Vec2::new(camera * parallax, 0.0))
         };
