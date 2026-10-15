@@ -10,7 +10,7 @@ Durum: **erken geliştirme**. Yapılanlar ve sıradakiler: [docs/YOL_HARITASI.md
 
 ## Test sürümünü indir
 
-**[oyun.exe dosyasını indir](https://github.com/gozlemesevdalisi/proje/releases/download/test-surumu/oyun.exe)**
+**[oyun.exe dosyasını indir](https://github.com/lahmacunveayran/proje/releases/download/test-surumu/oyun.exe)**
 (Windows 10 ve 11, 64 bit)
 
 - Her güncellemede otomatik olarak yeniden derlenir; link hep aynı kalır.

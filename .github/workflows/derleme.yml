@@ -1,6 +1,6 @@
 # Her gönderimde: biçim, lint ve testler (Linux), lisans denetimi, Windows derlemesi.
 # Gönderimlerde Windows .exe dosyası "test-surumu" Release'ine konur; indirme linki sabittir:
-# https://github.com/gozlemesevdalisi/proje/releases/download/test-surumu/oyun.exe
+# https://github.com/lahmacunveayran/proje/releases/download/test-surumu/oyun.exe
 name: Derleme
 
 on:
