@@ -159,6 +159,19 @@ impl Gradient {
         }
     }
 
+    /// Doğrusal degradenin şekil uzayındaki yönü: `t` değerinin en hızlı arttığı yön (boyu
+    /// birim başına `t` artışıdır). Radyal ya da bozuk degradede `None` döner.
+    pub fn linear_direction(&self) -> Option<Vec2> {
+        let m = self.mapping()?;
+        if m.radial {
+            return None;
+        }
+        Some(Vec2::new(
+            m.to_unit.matrix2.x_axis.x,
+            m.to_unit.matrix2.y_axis.x,
+        ))
+    }
+
     /// Bir noktanın 0..1 aralığına yayılmadan önceki degrade konumu (`t`).
     pub fn raw_t(mapping: &GradientMapping, point: Vec2) -> f32 {
         let u = mapping.to_unit.transform_point2(point);
@@ -280,6 +293,27 @@ impl From<Gradient> for Paint {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn linear_direction_follows_transform() {
+        let mut g = Gradient::linear(Vec2::ZERO, Vec2::new(10.0, 0.0), vec![]);
+        let d = g.linear_direction().unwrap();
+        assert!(d.normalize().abs_diff_eq(Vec2::X, 1e-5), "{d}");
+
+        // Degrade 90° döndürülünce şekil uzayında aşağı doğru artar.
+        g.transform = Affine2::from_angle(std::f32::consts::FRAC_PI_2);
+        let d = g.linear_direction().unwrap();
+        assert!(d.normalize().abs_diff_eq(Vec2::Y, 1e-5), "{d}");
+
+        // Eğik ölçek yönü de değiştirir: degrade boyunca t'nin en hızlı arttığı yön.
+        g.transform = Affine2::from_cols_array(&[1.0, 0.0, 1.0, 1.0, 0.0, 0.0]);
+        let d = g.linear_direction().unwrap().normalize();
+        let expected = Vec2::new(1.0, -1.0).normalize();
+        assert!(d.abs_diff_eq(expected, 1e-5), "{d}");
+
+        let r = Gradient::radial(Vec2::ZERO, 5.0, vec![]);
+        assert!(r.linear_direction().is_none());
+    }
 
     fn bw() -> Vec<GradientStop> {
         vec![

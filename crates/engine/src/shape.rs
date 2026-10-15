@@ -215,6 +215,44 @@ pub fn transform_path(path: &Path, t: Affine2) -> Path {
     b.build()
 }
 
+/// Bir yoldaki düz ve eğri parçaların sayısı (sanat kurallarının denetimi için).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct SegmentCounts {
+    pub lines: usize,
+    pub curves: usize,
+}
+
+impl SegmentCounts {
+    /// Eğri parçaların bütün parçalara oranı; parça yoksa 0.
+    pub fn curve_ratio(self) -> f32 {
+        let total = self.lines + self.curves;
+        if total == 0 {
+            0.0
+        } else {
+            self.curves as f32 / total as f32
+        }
+    }
+}
+
+/// Yolun düz ve eğri parçalarını sayar. Açık uçtan başlangıca dönen kapanış düz parça sayılır.
+pub fn segment_counts(path: &Path) -> SegmentCounts {
+    use lyon_tessellation::path::Event;
+    let mut counts = SegmentCounts::default();
+    for event in path.iter() {
+        match event {
+            Event::Line { .. } => counts.lines += 1,
+            Event::Quadratic { .. } | Event::Cubic { .. } => counts.curves += 1,
+            Event::End { last, first, close } => {
+                if close && (last - first).length() > 1e-4 {
+                    counts.lines += 1;
+                }
+            }
+            Event::Begin { .. } => {}
+        }
+    }
+    counts
+}
+
 /// Dikdörtgen yol.
 pub fn rect_path(origin: Vec2, size: Vec2) -> Path {
     let mut b = Path::builder();
@@ -311,6 +349,31 @@ mod tests {
             panic!("degrade bekleniyordu");
         };
         assert_eq!(g.transform, t);
+    }
+
+    #[test]
+    fn segment_counts_separate_lines_and_curves() {
+        let mut b = Path::builder();
+        b.begin(point(0.0, 0.0));
+        b.line_to(point(10.0, 0.0));
+        b.quadratic_bezier_to(point(15.0, 5.0), point(10.0, 10.0));
+        b.cubic_bezier_to(point(8.0, 12.0), point(2.0, 12.0), point(0.0, 10.0));
+        // Kapanış açık uçtan başlangıca düz bir parça ekler.
+        b.end(true);
+        let counts = segment_counts(&b.build());
+        assert_eq!(
+            counts,
+            SegmentCounts {
+                lines: 2,
+                curves: 2
+            }
+        );
+        assert!((counts.curve_ratio() - 0.5).abs() < 1e-6);
+
+        // Başlangıca zaten dönmüş yolun kapanışı parça sayılmaz.
+        let closed = polygon_path(&[Vec2::ZERO, Vec2::X, Vec2::Y, Vec2::ZERO]);
+        assert_eq!(segment_counts(&closed).lines, 3);
+        assert_eq!(SegmentCounts::default().curve_ratio(), 0.0);
     }
 
     #[test]
