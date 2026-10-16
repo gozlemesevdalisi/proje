@@ -44,7 +44,12 @@ EXCLUDED = {
     "f1": {140: "açılıştaki ArcadeTown ve Newgrounds logoları",
            54: "ArcadeTown logosu; yükleme ekranında ve ana menünün köşesinde"},
     "f2": {1763: "açılıştaki ArcadeTown animasyonu",
-           1962: "ArcadeTown logosu; ana menünün ve oyun sonu ekranlarının köşesinde"},
+           1962: "ArcadeTown logosu; ana menünün ve oyun sonu ekranlarının köşesinde",
+           # Sahibinin kararı (16 Ekim 2026): sponsor yazıları ve korsan kopya ekranı gösterilmez
+           **{cid: "korsan kopya uyarı ekranı (kök filmde 'STOLEN'; gösterilmez)"
+              for cid in (3125, 3126, 3127, 3128, 3129, 3130, 3131, 3132)},
+           **{cid: "özel karakterlerin yalnız ArcadeTown'da olduğunu söyleyen panel (sprite 2024, 2. kare; "
+                   "gösterilmez)" for cid in (2020, 2021, 2022, 2023)}},
 }
 # Üçüncü tarafların dışa aktarılan sınıfları (sınıf kodunu taşıyan boş sprite'lar): ad → neden
 EXCLUDED_EXPORTS = {"__Packages.MochiAd": "MochiAds reklam kütüphanesi (üçüncü taraf)"}

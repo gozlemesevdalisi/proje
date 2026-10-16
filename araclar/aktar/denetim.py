@@ -745,8 +745,10 @@ def check_game(game, visual):
     row(f"Tanımsız karakter başvurusu (dışarıda bırakılana {refs} başvuru: oynatıcı atlar)",
         sum(len(ops) for t in [lib["root"], *lib["sprites"].values()] for ops in t["frames"]), probs)
     checked, probs, notes = third_party_traces(game, lib, texts)
-    row("Sponsor ve üçüncü taraf izi (çizimlerin içerik özetiyle iki oyunda; kaynak/ kodunda)", checked, probs)
-    infos.extend(notes)
+    # Sahibinin kararı (16 Ekim 2026): sponsor yazıları gösterilmez, içerikte olmamalı
+    probs += [f"{n} (sponsor adı geçiyor; sahibinin kararıyla gösterilmez)" for n in notes]
+    row("Sponsor ve üçüncü taraf izi (çizimlerin içerik özetiyle iki oyunda; yazılarda; kaynak/ kodunda)",
+        checked, probs)
     # 6. Şekillerin görsel karşılaştırması
     if visual:
         probs, worst = compare_shapes(game, lib, archive)
@@ -1298,8 +1300,8 @@ SPONSOR_WORDS = re.compile(r"arcadetown|newgrounds|mochibot|mochiad|mochimedia",
 def third_party_traces(game, lib, texts):
     """Sponsor ve üçüncü taraf izi: (1) aktarılan şekil, morph ve resimlerin içerik özeti, iki oyunda da
     dışarıda bırakılan karakterlerinkiyle aynı olmamalı (aynı logo öbür oyunda başka kimlikle durabilir);
-    (2) kaynak/ altında Adobe mx sınıfı ya da reklam/izleme kütüphanesi olmamalı. Ayrıca sponsor adı geçen
-    yazılar listelenir (bilgi). Dönen: (denetlenen kayıt sayısı, sorunlar, bilgi notları)."""
+    (2) kaynak/ altında Adobe mx sınıfı ya da reklam/izleme kütüphanesi olmamalı; (3) sponsor adı geçen
+    yazılar ayrıca döner (çağıran sorun sayar). Dönen: (denetlenen kayıt sayısı, sorunlar, sponsor yazıları)."""
     swf_root = os.environ.get("SWF_KOK", os.path.join(ROOT, "..", "swf-oyunlar"))
     sponsor = {}
     for g in aktar.GAMES:
@@ -1315,7 +1317,7 @@ def third_party_traces(game, lib, texts):
     probs = [f"{game} karakter {cid}: dışarıda bırakılan {sponsor[body_digest(ours[cid][1])]} ile aynı çizim"
              for cid in imported if body_digest(ours[cid][1]) in sponsor]
     checked = len(imported)
-    # Sponsor adı geçen yazılar oyunun kendi yazısıdır (logo değil); sorun sayılmaz, karar için listelenir
+    # Sponsor adı geçen yazılar (oyunun kendi yazıları; sahibinin kararıyla gösterilmezler)
     notes = [f"{game} {'yazı' if kind == 'texts' else 'yazı alanı'} {tid}: {re.sub(r'<[^>]+>', '', t['text'])[:90]!r}"
              for kind in ("texts", "edit_texts") for tid, t in texts[kind].items()
              if SPONSOR_WORDS.search(t.get("text", ""))]
@@ -1395,8 +1397,8 @@ def main(argv):
         out += [f"| {n} | {c} | {p} |" for n, c, p in rows]
         out.append("")
         if infos:
-            out += ["Bilgi (sorun sayılmaz): sponsor adı geçen yazılar. Oyunun kendi yazılarıdır; gösterilip",
-                    "gösterilmeyecekleri sahibinin kararına bağlı.", ""] + [f"- {i}" for i in infos] + [""]
+            out += ["Bilgi (sorun sayılmaz): sponsor adı geçen yazılar (oyunun kendi yazıları). Sahibinin kararı",
+                    "sponsor yazılarının gösterilmemesidir; bunlar dışarıda bırakılmalı.", ""] + [f"- {i}" for i in infos] + [""]
         if problems:
             out += ["Sorunlar:", ""] + [f"- {p}" for p in problems[:300]]
             if len(problems) > 300:

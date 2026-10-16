@@ -318,3 +318,33 @@ fn hairline_indices_point_at_stroked_paths() {
     }
     assert_eq!(checked, 35 + 48, "ince çizgi sayısı");
 }
+
+#[test]
+fn sponsor_texts_and_the_pirate_copy_screen_are_not_imported() {
+    // Sahibinin kararı (16 Ekim 2026): sponsor adı geçen yazılar ve korsan kopya uyarı ekranı oyunda
+    // gösterilmez; içerikten de çıkarılır (yalnız yerel arşivde kalır).
+    for game in ["f1", "f2"] {
+        let texts = json(&format!("feudalism/{game}/texts.json"));
+        for kind in ["texts", "edit_texts"] {
+            for (id, t) in texts[kind].as_object().unwrap() {
+                let text = t["text"].as_str().unwrap_or("").to_lowercase();
+                for word in [
+                    "arcadetown",
+                    "newgrounds",
+                    "armorgames",
+                    "addictinggames",
+                    "stolen",
+                    "сперли",
+                ] {
+                    assert!(!text.contains(word), "{game} yazı {id}: {word}");
+                }
+            }
+        }
+    }
+    let lib = json("feudalism/f2/library.json");
+    for id in [
+        "2020", "2022", "2023", "3125", "3126", "3127", "3129", "3131", "3132",
+    ] {
+        assert!(lib["excluded"].get(id).is_some(), "f2 {id} dışarıda değil");
+    }
+}

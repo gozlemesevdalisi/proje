@@ -5,7 +5,7 @@ Kod kütüphanelerinin lisansları `cargo deny` ile denetlenir.
 
 | Varlık | Kaynak | Lisans | Nerede |
 | ------ | ------ | ------ | ------ |
-| Feudalism ve Feudalism 2 görselleri: şekiller, animasyonlar, düğmeler, ekranlar | Orijinal oyunların SWF dosyaları (`feudalism-orijinal.swf`, `feudalism-2-orijinal.swf`); SHA-256 özetleri `content/feudalism/<oyun>/library.json` içinde | Hak sahibinin izniyle (oyunun sahibinin 16 Ekim 2026'da bildirdiği). Oyunlarda yazan hak sahibi: Vitaly Zaborov ("Copyright Vitaly Zaborov 2008"). İznin tarihi ve kapsamı: **eklenecek** | `content/feudalism/` |
+| Feudalism ve Feudalism 2 görselleri: şekiller, animasyonlar, düğmeler, ekranlar | Orijinal oyunların SWF dosyaları (`feudalism-orijinal.swf`, `feudalism-2-orijinal.swf`); SHA-256 özetleri `content/feudalism/<oyun>/library.json` içinde | Hak sahibinin izniyle (oyunun sahibinin 16 Ekim 2026'da bildirdiği). Oyunlarda yazan hak sahibi: Vitaly Zaborov ("Copyright Vitaly Zaborov 2008"). | `content/feudalism/` |
 | Feudalism ve Feudalism 2'nin Türkçe çevirisi: sabit yazılar, ekran kutuları, koddaki metinler, silah/zırh/birlik adları, "Öldün..." çizimi | Oyunların sahibinin `swf-oyunlar` deposu (`oyunlar/<oyun>/ceviri/`, sürüm `a679d21`, 14 Ekim 2026) | Oyunların sahibinin kendi çevirisi | `content/feudalism/<oyun>/ceviri/` (tablolar değiştirilmeden), çevrilmiş kod `kaynak/feudalism/<oyun>/kod-tr/` |
 | Liberation Sans ve Liberation Serif 2.1.5 (normal, kalın, kalın italik) | [liberationfonts](https://github.com/liberationfonts/liberation-fonts), yapımcı: Red Hat; dosyalar `swf-oyunlar/yazitipleri/` içinden | SIL Open Font License 1.1 | `content/fonts/Liberation*.ttf`, lisans: `content/fonts/OFL-Liberation.txt` |
 | TeX Gyre 2.501 Pagella (kalın, kalın italik), Bonum (kalın, italik), Chorus, Adventor (kalın) | [GUST](https://www.gust.org.pl/projects/e-foundry/tex-gyre); dosyalar `swf-oyunlar/araclar/yazitipleri/` içinden | GUST Font License (LaTeX Project Public License 1.3c) | `content/fonts/texgyre*.otf`, lisans: `content/fonts/GUST-Font-License.txt` ve `LPPL-1.3c.txt`, ailelerin dosya listesi ve tanıtımı: `MANIFEST-TeX-Gyre-<aile>.txt`, `README-TeX-Gyre-<aile>.txt` |
@@ -24,9 +24,11 @@ Notlar:
   - üçüncü tarafların kodu: sponsor ekranlarının kodu, Adobe `mx.*` sınıfları, MochiAds reklam
     kütüphanesi, MochiBot izleme kodu. Bunlar `kaynak/` altına da girmez, yalnız yerel arşivde kalır
     (listesi `kaynak/feudalism/<oyun>/manifest.json` → `code_excluded`). Oyunun kendi kodundaki sponsor
-    sitesine bağlantılar (ör. "More Games" düğmesi) oyunun kodudur ve durur; oyunun kendi yazılarından
-    sponsor adı geçenler `docs/AYIKLAMA_DENETIMI.md`'de listelenir (gösterilip gösterilmeyecekleri
-    sahibinin kararına bağlı);
+    sitesine bağlantılar (ör. "More Games" düğmesi) oyunun kodudur ve durur;
+  - sponsor yazıları ve korsan kopya uyarı ekranı (sahibinin kararı, 16 Ekim 2026: gösterilmez): F2'de
+    korsan kopya ekranının yazıları ve düğmesi (kök filmde "STOLEN"), "özel karakterler yalnız
+    ArcadeTown'da" paneli (sprite 2024, 2. kare). Sahibinin çeviri tablosundaki bu kutuların çevirisi
+    kullanılmaz (`library.json` → `translation.unused`);
   - Macromedia/Adobe v2 arayüz bileşenleri (`mx.*`: düğme, kaydırma çubuğu, liste);
   - gömülü yazı tipleri: lisansları yazı tipi yapımcılarındadır. Yazılar açık lisanslı karşılıklarıyla
     çizilir: Arial ve `_sans` → Liberation Sans, Times New Roman ve `_serif` → Liberation Serif, Book Antiqua
@@ -46,7 +48,8 @@ Notlar:
   çalışmanın yalnız bir kısmının dağıtılması değiştirilmiş sürüm sayılabilir; madde 7'nin koşulları için:
   dosyaların hiçbiri değiştirilmedi (özetleri aşağıda; dağıtımdakilerle bayt bayt aynı), hangi dosyaların
   alındığı bu tabloda ve dağıtımın tamamının yeri ailenin README/MANIFEST dosyasında yazılıdır. Bu
-  belgeler yazı tipleriyle birlikte dağıtılır. Hukuki yorum değildir; onay oyunların sahibindedir.
+  belgeler yazı tipleriyle birlikte dağıtılır. Sahibinin kararı (16 Ekim 2026): proje ücretsiz ve
+  ticari amaçsızdır; TeX Gyre dosyaları bu biçimde kullanılır.
 - TeX Gyre dosyalarının sürümü: 2.501 (8 Mayıs 2018). Bu sürüm, Ubuntu 24.04'ün `fonts-texgyre`
   (20180621-6) paketindeki dosyalarla bayt bayt aynıdır; MANIFEST ve README dosyaları o paketten
   (`/usr/share/texmf/doc/fonts/tex-gyre/`), LPPL 1.3c metni `texlive-latex-base-doc` (2023.20240207-1)

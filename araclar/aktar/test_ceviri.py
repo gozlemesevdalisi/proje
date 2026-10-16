@@ -63,6 +63,15 @@ class Tables(unittest.TestCase):
             "yazı tipi 46: oyunda yok",
             "çizilmiş yazı 2020: oyunda şekil olarak yok",
         ])
+        # Bilerek dışarıda bırakılan kutunun (ör. sponsor yazısı) çevirisi hata değildir, kullanılmaz
+        lib["excluded"] = {"47": "sponsor: reklam yazısı", "999": "sponsor: reklam yazısı"}
+        with tempfile.TemporaryDirectory() as td:
+            write(os.path.join(td, "160.txt"), "[\nfont 1\n]Hold Position[\ny 440\n]second")
+            write(os.path.join(td, "161.txt"), "[\nfont 1\n]one[\ny 440\n]two")
+            probs = ceviri.check(tables, texts, lib, td)
+        self.assertNotIn("ekran kutusu 47: oyunda yok", probs)
+        self.assertNotIn("sabit yazı 999: oyunda yok", probs)
+        self.assertEqual(ceviri.unused_entries(tables, lib), {"sabit": ["999"], "kutular": ["47"]})
 
 
 class Files(unittest.TestCase):

@@ -27,7 +27,7 @@ FFDec'in çizimi arasında piksel piksel karşılaştırır.
 | Morph sınırları (iki ucun SWF'deki sınırlarının birleşimi) | 11 | 0 |
 | Morph uçlarının renkleri, saydamlıkları, çizgi kalınlıkları ve degrade matrisleri (FFDec XML'iyle sayısal) | 44 | 0 |
 | Tanımsız karakter başvurusu (dışarıda bırakılana 2 başvuru: oynatıcı atlar) | 27152 | 0 |
-| Sponsor ve üçüncü taraf izi (çizimlerin içerik özetiyle iki oyunda; kaynak/ kodunda) | 1854 | 0 |
+| Sponsor ve üçüncü taraf izi (çizimlerin içerik özetiyle iki oyunda; yazılarda; kaynak/ kodunda) | 1854 | 0 |
 | Şekiller (resim dolgulular dahil): motorun çizimi FFDec'inkiyle piksel piksel (en kötü: %8.88 farklı, katı 1) | 1176 | 0 |
 | Morph başlangıç ve bitişleri piksel piksel (en kötü: %0.02 farklı, katı 0) | 22 | 0 |
 | Çizilmiş yazıların Türkçe hâlleri, Türkçe SWF'nin çizimiyle (en kötü: %0.00 farklı, katı 0) | 1 | 0 |
@@ -39,33 +39,26 @@ FFDec'in çizimi arasında piksel piksel karşılaştırır.
 | Etiket türlerinin sayıları | 65626 | 0 |
 | Karakterler (tür ve yer) | 3183 | 0 |
 | Zaman çizelgeleri: her yerleştirme ve kaldırma, etiketler, sesler (durdurma, tekrar, zarf dahil) | 49080 | 0 |
-| Düğmeler (her kayıt) | 387 | 0 |
+| Düğmeler (her kayıt) | 385 | 0 |
 | Dışa aktarılan adlar (bileşen, sınıf ve dışarıda bırakılanlar hariç) | 87 | 0 |
 | Sabit yazılar (sınır, matris; her kaydın yazı tipi, boyu, rengi, saydamlığı, yeri, glifleri; çözülmüş yazı) | 131 | 0 |
-| Yazı alanları (bütün alanlar: sınır, bayraklar, yazı tipi, boy, renk, uzunluk, hizalama, değişken, yazı) | 193 | 0 |
+| Yazı alanları (bütün alanlar: sınır, bayraklar, yazı tipi, boy, renk, uzunluk, hizalama, değişken, yazı) | 184 | 0 |
 | Sesler (baytlar, örnek sayısı ve MP3 gecikmesi SWF'dekiyle aynı) | 16 | 0 |
 | Resimler (SWF'deki veriden çözülen resimle piksel piksel aynı) | 24 | 0 |
 | Kod parçaları: yer yer (kare, sınıf, düğme, klip eylemi); üçüncü tarafınkiler yalnız listede | 1126 | 0 |
 | Resim dolgulu şekiller (desen matrisi ve resmi SWF'dekiyle aynı) | 31 | 0 |
 | İnce çizgi işaretleri (işaretli çizgiler; FFDec'in SVG'sindekilerle aynı) | 48 | 0 |
 | Türkçe çeviri tabloları (kaynağıyla bayt bayt aynı) | 6 | 0 |
-| Çeviri hedefleri (her yazı, kutu, yazı tipi ve çizim SWF'de; parça sayısı kayıt sayısıyla aynı) | 221 | 0 |
+| Çeviri hedefleri (her yazı, kutu, yazı tipi ve çizim SWF'de; parça sayısı kayıt sayısıyla aynı) | 220 | 0 |
 | Koddaki çeviriler (çevrilen koddaki her yeni dize sahibinin Türkçe SWF'sinin bayt kodunda) | 1031 | 0 |
 | Yazı tiplerinin açık lisanslı karşılıkları (dosya kaynağıyla aynı, lisansı yanında) | 16 | 0 |
 | Morph sınırları (iki ucun SWF'deki sınırlarının birleşimi) | 24 | 0 |
 | Morph uçlarının renkleri, saydamlıkları, çizgi kalınlıkları ve degrade matrisleri (FFDec XML'iyle sayısal) | 144 | 0 |
-| Tanımsız karakter başvurusu (dışarıda bırakılana 4 başvuru: oynatıcı atlar) | 49080 | 0 |
-| Sponsor ve üçüncü taraf izi (çizimlerin içerik özetiyle iki oyunda; kaynak/ kodunda) | 3212 | 0 |
-| Şekiller (resim dolgulular dahil): motorun çizimi FFDec'inkiyle piksel piksel (en kötü: %8.88 farklı, katı 556) | 2129 | 1 |
+| Tanımsız karakter başvurusu (dışarıda bırakılana 17 başvuru: oynatıcı atlar) | 49080 | 0 |
+| Sponsor ve üçüncü taraf izi (çizimlerin içerik özetiyle iki oyunda; yazılarda; kaynak/ kodunda) | 3209 | 0 |
+| Şekiller (resim dolgulular dahil): motorun çizimi FFDec'inkiyle piksel piksel (en kötü: %8.88 farklı, katı 556) | 2128 | 1 |
 | Morph başlangıç ve bitişleri piksel piksel (en kötü: %0.53 farklı, katı 0) | 48 | 0 |
 | Çizilmiş yazıların Türkçe hâlleri, Türkçe SWF'nin çizimiyle (en kötü: %0.00 farklı, katı 0) | 1 | 0 |
-
-Bilgi (sorun sayılmaz): sponsor adı geçen yazılar. Oyunun kendi yazılarıdır; gösterilip
-gösterilmeyecekleri sahibinin kararına bağlı.
-
-- f2 yazı alanı 2022: 'Custom Characters Only Available \nfrom ArcadeTown.com.  Click Here \nto create your own cha'
-- f2 yazı alanı 3130: 'http://www.arcadetown.com/free_content/index.asp'
-- f2 yazı alanı 3132: 'The game is playable at ArcadeTown'
 
 Sorunlar:
 

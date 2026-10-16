@@ -121,11 +121,12 @@ def sponsor_boxes(lib, edit_texts):
 
 # Çeviri tablosunda olmayan, ekranlara bakılarak bulunmuş çizilmiş yazılar: (şekil, yazı, durum)
 KNOWN_DRAWN_TEXTS = {
-    "f1": [(995, "The Age of...", "ana menünün alt başlığı; çeviri tablosunda yok, sahibine sorulacak"),
+    "f1": [(995, "The Age of...", "ana menüde oyunun başlığının parçası; İngilizce kalır (yeni çizim yapılmaz; "
+                                  "sahibinin Türkçe sürümünde de İngilizce)"),
            (1019, "FEUDALISM", "oyunun adı; özel ad, çevrilmez")],
     "f2": [(None, "Feudalism II", "ana menüdeki oyunun adı; özel ad, çevrilmez")],
 }
-SPONSOR_REASON = "sponsor ya da site metni (gösterilip gösterilmeyeceği oyunların sahibinin kararı; henüz sorulmadı)"
+SPONSOR_REASON = "sponsor ya da site metni (sahibinin kararıyla gösterilmez)"
 
 
 def untranslated_reason(edit, names, code, sponsor=False):

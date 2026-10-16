@@ -87,7 +87,10 @@ def check(tables, texts, lib, ffdec_texts):
     """Her çeviri girdisinin hedefi aktarılan içerikte var mı. `ffdec_texts`: FFDec'in biçimli yazı
     dökümü klasörü (sabit yazının parça sayısı oradan sayılır, kayıt sayısıyla da aynı olmalıdır)."""
     probs = []
+    excluded = lib.get("excluded", {})
     for tid, entry in entries(tables["sabit"]).items():
+        if tid in excluded:
+            continue
         if tid not in texts["texts"]:
             probs.append(f"sabit yazı {tid}: oyunda yok")
             continue
@@ -97,11 +100,24 @@ def check(tables, texts, lib, ffdec_texts):
         if n != original or n != len(texts["texts"][tid]["records"]):
             probs.append(f"sabit yazı {tid}: çeviride {n} parça, orijinalde {original} parça "
                          f"ve {len(texts['texts'][tid]['records'])} kayıt")
-    probs += [f"ekran kutusu {eid}: oyunda yok" for eid in entries(tables["kutular"]) if eid not in texts["edit_texts"]]
+    probs += [f"ekran kutusu {eid}: oyunda yok" for eid in entries(tables["kutular"])
+              if eid not in texts["edit_texts"] and eid not in excluded]
     probs += [f"yazı tipi {fid}: oyunda yok" for fid in entries(tables["yazitipleri"]) if fid not in texts["fonts"]]
     probs += [f"çizilmiş yazı {sid}: oyunda şekil olarak yok" for sid in entries(tables["sekiller"])
               if sid not in lib["shapes"]]
     return probs
+
+
+def unused_entries(tables, lib):
+    """Hedefi bilerek dışarıda bırakılan (ör. gösterilmeyen sponsor yazısı) çeviri girdileri; tablolar
+    değiştirilmez, bu girdiler yalnız kullanılmaz."""
+    excluded = lib.get("excluded", {})
+    out = {}
+    for name in ("sabit", "kutular"):
+        ids = sorted((k for k in entries(tables[name]) if k in excluded), key=int)
+        if ids:
+            out[name] = ids
+    return out
 
 
 def translate_code(swf_root, code_dir, tables_dir, out_dir):
@@ -172,7 +188,9 @@ def import_translation(game, swf_root, archive, tr_archive, out_dir, code_dir, l
     return {
         "source": f"swf-oyunlar/{TRANSLATIONS[game]}/ceviri",
         "tables": {name: f"ceviri/{name}.json" for name in TABLES},
-        "counts": {"texts": len(entries(tables["sabit"])), "edit_texts": len(entries(tables["kutular"])),
+        "unused": unused_entries(tables, lib),
+        "counts": {"texts": len(entries(tables["sabit"])) - len(unused_entries(tables, lib).get("sabit", [])),
+                   "edit_texts": len(entries(tables["kutular"])) - len(unused_entries(tables, lib).get("kutular", [])),
                    "code_files": len(code), "names": sum(len(v) for k, v in entries(tables["adlar"]).items()),
                    "drawn_texts": len(drawn)},
         "drawn_texts": drawn,

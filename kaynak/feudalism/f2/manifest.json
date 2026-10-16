@@ -8159,19 +8159,19 @@
   },
   "2020": {
    "type": "shape",
-   "where": "shapes/2020.svg"
+   "where": "yalnız yerel arşiv: sponsor: özel karakterlerin yalnız ArcadeTown'da olduğunu söyleyen panel (sprite 2024, 2. kare; gösterilmez)"
   },
   "2021": {
    "type": "edit_text",
-   "where": "texts.json"
+   "where": "yalnız yerel arşiv: sponsor: özel karakterlerin yalnız ArcadeTown'da olduğunu söyleyen panel (sprite 2024, 2. kare; gösterilmez)"
   },
   "2022": {
    "type": "edit_text",
-   "where": "texts.json"
+   "where": "yalnız yerel arşiv: sponsor: özel karakterlerin yalnız ArcadeTown'da olduğunu söyleyen panel (sprite 2024, 2. kare; gösterilmez)"
   },
   "2023": {
    "type": "button",
-   "where": "library.json"
+   "where": "yalnız yerel arşiv: sponsor: özel karakterlerin yalnız ArcadeTown'da olduğunu söyleyen panel (sprite 2024, 2. kare; gösterilmez)"
   },
   "2024": {
    "type": "sprite",
@@ -12579,35 +12579,35 @@
   },
   "3125": {
    "type": "edit_text",
-   "where": "texts.json"
+   "where": "yalnız yerel arşiv: sponsor: korsan kopya uyarı ekranı (kök filmde 'STOLEN'; gösterilmez)"
   },
   "3126": {
    "type": "edit_text",
-   "where": "texts.json"
+   "where": "yalnız yerel arşiv: sponsor: korsan kopya uyarı ekranı (kök filmde 'STOLEN'; gösterilmez)"
   },
   "3127": {
    "type": "edit_text",
-   "where": "texts.json"
+   "where": "yalnız yerel arşiv: sponsor: korsan kopya uyarı ekranı (kök filmde 'STOLEN'; gösterilmez)"
   },
   "3128": {
    "type": "edit_text",
-   "where": "texts.json"
+   "where": "yalnız yerel arşiv: sponsor: korsan kopya uyarı ekranı (kök filmde 'STOLEN'; gösterilmez)"
   },
   "3129": {
    "type": "edit_text",
-   "where": "texts.json"
+   "where": "yalnız yerel arşiv: sponsor: korsan kopya uyarı ekranı (kök filmde 'STOLEN'; gösterilmez)"
   },
   "3130": {
    "type": "edit_text",
-   "where": "texts.json"
+   "where": "yalnız yerel arşiv: sponsor: korsan kopya uyarı ekranı (kök filmde 'STOLEN'; gösterilmez)"
   },
   "3131": {
    "type": "button",
-   "where": "library.json"
+   "where": "yalnız yerel arşiv: sponsor: korsan kopya uyarı ekranı (kök filmde 'STOLEN'; gösterilmez)"
   },
   "3132": {
    "type": "edit_text",
-   "where": "texts.json"
+   "where": "yalnız yerel arşiv: sponsor: korsan kopya uyarı ekranı (kök filmde 'STOLEN'; gösterilmez)"
   },
   "3133": {
    "type": "shape",
@@ -12829,6 +12829,8 @@
   "DataProvider.as": "Macromedia/Adobe arayüz bileşeni (oyunda kullanılmıyor)",
   "DataSelector.as": "Macromedia/Adobe arayüz bileşeni (oyunda kullanılmıyor)",
   "Defaults.as": "Macromedia/Adobe arayüz bileşeni (oyunda kullanılmıyor)",
+  "DefineButton2_2023/BUTTONCONDACTION on(release).as": "sponsor: özel karakterlerin yalnız ArcadeTown'da olduğunu söyleyen panel (sprite 2024, 2. kare; gösterilmez)",
+  "DefineButton2_3131/BUTTONCONDACTION on(release).as": "sponsor: korsan kopya uyarı ekranı (kök filmde 'STOLEN'; gösterilmez)",
   "DefineButton2_70/BUTTONCONDACTION on(keyPress Tab).as": "Macromedia/Adobe arayüz bileşeni (oyunda kullanılmıyor)",
   "DefineSprite_100_NumericStepper/frame_1/DoAction.as": "Macromedia/Adobe arayüz bileşeni (oyunda kullanılmıyor)",
   "DefineSprite_100_NumericStepper/frame_2/PlaceObject2_76_SimpleButton_1/CLIPACTIONRECORD on(initialize).as": "Macromedia/Adobe arayüz bileşeni (oyunda kullanılmıyor)",
