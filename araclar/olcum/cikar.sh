@@ -73,15 +73,16 @@ for oyun in f1 f2; do
   echo "$oyun: tam döküm (her içerik türü, XML dökümü, Flash projesi) → $T"
   rm -rf "$T"
   mkdir -p "$T"
-  # Türler ayrı ayrı: FFDec'in bir türdeki hatası öbürlerini durdurmasın
-  $FF -format shape:svg -export shape "$T" "$swf" 2>&1 | sessiz | tail -1
-  $FF -format morphshape:svg -export morphshape "$T" "$swf" 2>&1 | sessiz | tail -1
+  # Türler ayrı ayrı: FFDec'in bir türdeki hatası öbürlerini durdurmasın. FFDec tek tür dışa aktarırken
+  # alt klasör açmaz; her tür kendi klasörüne yazılır (aktar.py ve denetim.py bu adları bekler).
+  $FF -format shape:svg -export shape "$T/shapes" "$swf" 2>&1 | sessiz | tail -1
+  $FF -format morphshape:svg -export morphshape "$T/morphshapes" "$swf" 2>&1 | sessiz | tail -1
   $FF -format morphshape:png_start_end -zoom 4 -export morphshape "$T/morph-png" "$swf" 2>&1 | sessiz | tail -1
-  $FF -format image:png_gif_jpeg -export image "$T" "$swf" 2>&1 | sessiz | tail -1
-  $FF -format sound:mp3_wav -export sound "$T" "$swf" 2>&1 | sessiz | tail -1
-  $FF -format font:ttf -export font "$T" "$swf" 2>&1 | sessiz | tail -1
-  $FF -format text:formatted -export text "$T" "$swf" 2>&1 | sessiz | tail -1
-  $FF -format frame:png -export frame "$T" "$swf" 2>&1 | sessiz | tail -1
+  $FF -format image:png_gif_jpeg -export image "$T/images" "$swf" 2>&1 | sessiz | tail -1
+  $FF -format sound:mp3_wav -export sound "$T/sounds" "$swf" 2>&1 | sessiz | tail -1
+  $FF -format font:ttf -export font "$T/fonts" "$swf" 2>&1 | sessiz | tail -1
+  $FF -format text:formatted -export text "$T/texts" "$swf" 2>&1 | sessiz | tail -1
+  $FF -format frame:png -export frame "$T/frames" "$swf" 2>&1 | sessiz | tail -1
   $FF -format button:png -export button "$T/buttons-png" "$swf" 2>&1 | sessiz | tail -1
   $FF -format script:as -export script "$T" "$swf" 2>&1 | sessiz | tail -1
   $FF -format script:pcode -export script "$T/pcode" "$swf" 2>&1 | sessiz | tail -1
