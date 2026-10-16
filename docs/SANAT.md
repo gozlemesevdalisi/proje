@@ -1,5 +1,11 @@
 # Sanat rehberi
 
+> **Karar (16 Ekim 2026):** Oyunun sahibi yeni çizim yapılmamasına karar verdi. Oyunun bütün
+> görselleri Feudalism 1 ve 2'nin kendi görselleridir; hak sahibinin izniyle kullanılır ve
+> `araclar/aktar/aktar.py` ile `content/feudalism/` altına aktarılır (bkz. `docs/LISANSLAR.md`).
+> Bu belgedeki ölçümler esinin nasıl çizildiğini anlatan kayıt olarak kalır; yeni çizim kuralı
+> değildir.
+
 Oyunun görünüşünü belirleyen kurallar. Her kural esin kaynağı iki Flash oyununun çizimlerinden
 **ölçülmüştür** ve yanında dayandığı ölçüm yazılıdır. Ölçüme dayanmayan bir kural yalnızca oyunun
 sahibinin kararıysa yazılır ve öyle işaretlenir: *(sahibin kararı)*.

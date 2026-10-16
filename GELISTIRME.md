@@ -37,7 +37,8 @@ Hepsi depo kökünde çalıştırılır.
 | Bir çizimi referansla karşılaştır | `python3 araclar/olcum/olcum.py karsilastir cizim.svg kahraman iskelet.json` |
 | Pozun özgünlüğü (ve üst üste çizimi) | `python3 araclar/olcum/olcum.py ortusme iskelet.json [cizim.png]` |
 | Yan yana levha (aynı boy, %5 cetvel) | `python3 araclar/olcum/olcum.py levha cikti.png f1/1112 f1/1110 cizim.svg:iskelet.json` |
-| Bozkır mızrakçısını üret     | `python3 tools/art/ciz_mizrakci.py` → `content/art/characters/`, `tools/art/iskelet/` |
+| Feudalism görsellerini aktar | `python3 araclar/aktar/aktar.py` → `content/feudalism/` (önce `araclar/olcum/cikar.sh`) |
+| Aktarım aracının testleri   | `python3 -m unittest discover -s araclar/aktar -p 'test_*.py'` |
 | Ölçüm aracının testleri     | `python3 -m unittest discover -s araclar/olcum -p 'test_*.py'` |
 | Sanat kurallarını denetle   | `cargo test -p game --test art_rules`                     |
 
@@ -72,8 +73,11 @@ Kod:
 
 Görseller ve lisanslar:
 
-- Bütün görseller, adlar ve metinler özgündür. Feudalism serisinin ya da başka bir oyunun dosyaları,
-  adları ve çizimleri kullanılmaz.
+- Oyunun bütün görselleri Feudalism 1 ve 2'nin kendi görselleridir; hak sahibinin izniyle kullanılır
+  (bkz. `docs/LISANSLAR.md`). Yeni çizim yapılmaz (sahibin kararı, 16 Ekim 2026).
+- Görseller `araclar/aktar/aktar.py` ile orijinal SWF dosyalarından `content/feudalism/` altına
+  aktarılır; elle değiştirilmez. Oyunun yazarına ait olmayanlar aktarılmaz: sponsor logoları,
+  Macromedia/Adobe arayüz bileşenleri, gömülü yazı tipleri.
 - Dışarıdan alınan her varlık (yazı tipi, ses, müzik) eklenmeden önce lisansı doğrulanır ve kaynağıyla
   birlikte `docs/LISANSLAR.md` içine yazılır. AGPL ve ticari kullanımı yasaklayan lisanslar kabul edilmez.
 

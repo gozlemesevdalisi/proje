@@ -14,6 +14,7 @@
 #   4. Birlikler oyunun formülleriyle birleştirilir: referans/<oyun>/birlikler
 #   5. Kukla yapısı ve bütün karelerin eklemleri: olcum/kukla-<oyun>.json, referans/<oyun>/pozlar.json
 #   6. Parça ölçüleri: docs/KARAKTER_OLCULERI.md
+#   7. Görsellerin oyuna aktarımı: content/feudalism/<oyun> (bkz. araclar/aktar/aktar.py)
 # Gerekenler: Java 17+, Python 3 + Pillow, curl, unzip, sha256sum, cargo.
 set -euo pipefail
 
@@ -63,3 +64,5 @@ for oyun in f1 f2; do
   SWF_KOK="$SWF_KOK" python3 araclar/olcum/kukla_yapisi.py "$oyun"
 done
 SWF_KOK="$SWF_KOK" python3 araclar/olcum/olc.py "$REF" docs/KARAKTER_OLCULERI.md
+echo "Görseller oyunun içerik klasörüne aktarılıyor (content/feudalism)..."
+python3 araclar/aktar/aktar.py "$SWF_KOK"

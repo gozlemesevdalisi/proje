@@ -5,11 +5,18 @@ Kod kütüphanelerinin lisansları `cargo deny` ile denetlenir.
 
 | Varlık | Kaynak | Lisans | Nerede |
 | ------ | ------ | ------ | ------ |
+| Feudalism ve Feudalism 2 görselleri: şekiller, animasyonlar, düğmeler, ekranlar | Orijinal oyunların SWF dosyaları (`feudalism-orijinal.swf`, `feudalism-2-orijinal.swf`); SHA-256 özetleri `content/feudalism/<oyun>/library.json` içinde | Hak sahibinin izniyle (oyunun sahibinin 16 Ekim 2026'da bildirdiği). İzni veren, tarihi ve kapsamı: **eklenecek** | `content/feudalism/` |
 | Alegreya (değişken kalınlık) | [google/fonts](https://github.com/google/fonts/tree/main/ofl/alegreya), yapımcı: Huerta Tipográfica | SIL Open Font License 1.1 | `content/fonts/Alegreya-Variable.ttf`, lisans: `content/fonts/OFL-Alegreya.txt` |
 | Alegreya SC (normal, kalın) | [google/fonts](https://github.com/google/fonts/tree/main/ofl/alegreyasc), yapımcı: Huerta Tipográfica | SIL Open Font License 1.1 | `content/fonts/AlegreyaSC-*.ttf`, lisans: `content/fonts/OFL-AlegreyaSC.txt` |
 | Alegreya Sans (normal, kalın) | [google/fonts](https://github.com/google/fonts/tree/main/ofl/alegreyasans), yapımcı: Huerta Tipográfica | SIL Open Font License 1.1 | `content/fonts/AlegreyaSans-*.ttf`, lisans: `content/fonts/OFL-AlegreyaSans.txt` |
 
 Notlar:
+
+- Feudalism görsellerinden aktarılmayanlar (izin oyunun yazarının kendi eserini kapsar; bunlar ona ait
+  değildir):
+  - açılıştaki sponsor logoları (ArcadeTown, Newgrounds);
+  - Macromedia/Adobe v2 arayüz bileşenleri (`mx.*`: düğme, kaydırma çubuğu, liste);
+  - gömülü yazı tipleri: lisansları yazı tipi yapımcılarındadır; oyunda kendi yazı tiplerimiz kullanılır.
 
 - SIL Open Font License 1.1 ticari kullanıma ve yazı tipinin oyunla birlikte dağıtılmasına izin verir;
   yazı tipinin tek başına satılmasını yasaklar. Lisans metinleri yazı tiplerinin yanında durur ve oyunla
