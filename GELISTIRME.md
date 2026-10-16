@@ -44,6 +44,7 @@ Hepsi depo kökünde çalıştırılır.
 | Çok sayıda SVG'yi resme çiz | `cargo run --release -p engine --example svg-batch -- liste.txt` (satır: `girdi.svg<TAB>cikti.png<TAB>ölçek`) |
 | Ölçüm aracının testleri     | `python3 -m unittest discover -s araclar/olcum -p 'test_*.py'` |
 | Sanat kurallarını denetle   | `cargo test -p game --test art_rules`                     |
+| Feudalism'in bir ekranını çiz | `cargo run --release -p engine --example movie-png -- content feudalism/f1 4 menu.png` (kök filmin 4. karesi) |
 
 Çizimler elle değil, `tools/art/` içindeki betiklerle üretilir; betikler renkleri yalnızca
 `tools/art/palet.txt` paletinden adıyla alır. Üretilen SVG'ler `content/art/` altına yazılır ve

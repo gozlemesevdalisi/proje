@@ -14,6 +14,7 @@ log.workspace = true
 lyon_tessellation.workspace = true
 png.workspace = true
 pollster.workspace = true
+serde_json.workspace = true
 skrifa.workspace = true
 usvg.workspace = true
 wgpu.workspace = true

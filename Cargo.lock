@@ -407,6 +407,7 @@ dependencies = [
  "png",
  "pollster",
  "resvg",
+ "serde_json",
  "skrifa",
  "usvg",
  "wgpu",

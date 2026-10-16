@@ -91,6 +91,31 @@ Kurallar:
   bir gruptur. Parçalar Aşama 1'de kemiklere bağlanıp anahtar karelerle oynatılacak; donanım
   değişince ilgili parça değişir.
 
+## Flash sembolleri ve zaman çizelgesi (Feudalism içeriği)
+
+Feudalism'in görselleri SWF'deki yapılarıyla aktarılır (`content/feudalism/<oyun>/library.json`,
+`araclar/aktar/aktar.py`). Motor bunları Flash 8 oynatıcısı gibi oynatır:
+
+- `engine::movie`: kütüphane (şekiller, morph'lar, sprite'lar, düğmeler, yazılar, kök film) ve oynatıcı
+  (`Clip`). Her kare bir işlem listesidir (yerleştir, taşı, kaldır); oynatıcı bunları uygulayıp görüntü
+  listesini kurar. Sprite'lar kendi zaman çizelgelerini bağımsız oynatır; kare betiklerinden çıkarılan
+  basit komutlar (dur, oynat, kareye ya da etikete git, olay) ve ses başlatma/durdurma çalışır ya da
+  olay olarak bildirilir. Kurallar modülün başında yazılıdır (geri gitmek görüntü listesini baştan kurar,
+  karesi olmayan sprite 1 boş karedir, tanımı olmayan karakter, ör. dışarıda bırakılan sponsor logosu,
+  yerleştirilmez).
+- `Clip::draw_commands`: iç içe sprite'ları düzleştirir; matrisler ve renk dönüşümleri birleşir,
+  maskeler (kırpma derinliği) başlangıç ve bitiş komutu olur, morph'lar oranlarıyla gelir.
+- `engine::movie_draw::MovieMeshes`: komutları çizim listesine çevirir. Sembollerin SVG'leri bir kez
+  üçgenlenip önbellekte tutulur. Morph'un ara hâli iki ucun doğrusal karışımıdır (`engine::morph`:
+  noktalar, renkler, degrade durakları ve matrisleri), oran başına bir kez kurulur. Flash'ın ince çizgi
+  kuralı: 1 pikselden ince çizgi ekranda 1 piksel çizilir (ölçeğe göre ayrı ağ).
+- Maskeler kalıp (stencil) arabelleğiyle çizilir: `DrawList::push_mask` / `pop_mask`. Maske şekli
+  görünmez, maske açıkken çizilenler yalnız onun içinde görünür; maskeler iç içe olabilir.
+- Henüz çizilmeyenler: resim dolgulu şekiller (zemin dokuları), yazılar (Türkçe metinler açık lisanslı
+  yazı tipleriyle dizilecek), süzgeçler (parlama, bulanıklık), karışım kipleri.
+- Deneme aracı: `cargo run --release -p engine --example movie-png -- content feudalism/f1 4 menu.png`
+  kök filmin bir karesini resme çizer.
+
 ## Pencere ve döngü
 
 - `engine::app` pencereyi açar, girdiyi toplar (`engine::input`) ve oyunun kurallarını saniyede 60 sabit

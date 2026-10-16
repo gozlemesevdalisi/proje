@@ -352,3 +352,70 @@ fn composed_scene_snapshot() {
         .unwrap();
     assert_snapshot("bilesik-sahne", &img);
 }
+
+#[test]
+fn masks_clip_drawings_and_nest() {
+    // Flash maskesi: maske şeklinin kendisi görünmez; maske açıkken çizilenler yalnız onun içinde
+    // görünür. İç içe maskelerde ikisinin kesişimi kalır; maske kapanınca çizim yine her yerdedir.
+    let mut r = renderer();
+    let red = r.upload(
+        &tessellate(
+            &image(vec![Shape::filled(
+                rect_path(Vec2::ZERO, Vec2::splat(100.0)),
+                hex("#C00000"),
+            )]),
+            0.05,
+        )
+        .unwrap(),
+    );
+    let left = r.upload(
+        &tessellate(
+            &image(vec![Shape::filled(
+                rect_path(Vec2::ZERO, Vec2::new(50.0, 100.0)),
+                hex("#00FF00"),
+            )]),
+            0.05,
+        )
+        .unwrap(),
+    );
+    let top = r.upload(
+        &tessellate(
+            &image(vec![Shape::filled(
+                rect_path(Vec2::ZERO, Vec2::new(100.0, 50.0)),
+                hex("#0000FF"),
+            )]),
+            0.05,
+        )
+        .unwrap(),
+    );
+    let blue = r.upload(
+        &tessellate(
+            &image(vec![Shape::filled(
+                rect_path(Vec2::ZERO, Vec2::splat(10.0)),
+                hex("#2040A0"),
+            )]),
+            0.05,
+        )
+        .unwrap(),
+    );
+    let mut list = DrawList::new(hex("#FFFFFF"));
+    list.push_mask(&[(left.clone(), Affine2::IDENTITY)]);
+    list.draw(&red, Affine2::IDENTITY);
+    list.push_mask(&[(top.clone(), Affine2::IDENTITY)]);
+    list.draw_with(
+        &red,
+        Affine2::IDENTITY,
+        ColorTransform::multiply(hex("#000000")),
+    );
+    list.pop_mask();
+    list.pop_mask();
+    list.draw(&blue, Affine2::from_translation(Vec2::new(85.0, 85.0)));
+    let img = r.render_to_image(&small_viewport(), &list).unwrap();
+    // Sol üst: iki maskenin kesişimi (siyah); sol alt: yalnız dış maske (kırmızı); sağ: maske dışı (beyaz)
+    assert_eq!(img.pixel(25, 25), [0, 0, 0, 255]);
+    assert_eq!(img.pixel(25, 75), [0xC0, 0, 0, 255]);
+    assert_eq!(img.pixel(75, 25), [255, 255, 255, 255]);
+    assert_eq!(img.pixel(75, 75), [255, 255, 255, 255]);
+    // Maske şekilleri (yeşil, mavi) hiç görünmez; maskeler kapandıktan sonraki çizim her yerde görünür
+    assert_eq!(img.pixel(90, 90), [0x20, 0x40, 0xA0, 255]);
+}

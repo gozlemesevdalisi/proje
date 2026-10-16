@@ -1,0 +1,57 @@
+//! Feudalism ekranlarının motorun oynatıcısıyla ekransız görüntü testi: kök filmin karesi oynatılıp
+//! çizilir ve beklenen resimle karşılaştırılır (ana menüler). Beklenen resimler FFDec'in kare
+//! çizimiyle karşılaştırılarak gözden geçirildi (yazılar ve süzgeçler henüz çizilmiyor).
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
+use std::path::PathBuf;
+
+use engine::color::Color;
+use engine::glam::{Affine2, UVec2, Vec2};
+use engine::movie::{Clip, Library};
+use engine::movie_draw::MovieMeshes;
+use engine::render::{ColorTransform, DrawList, Renderer};
+use engine::snapshot::{Tolerance, check};
+use engine::viewport::Viewport;
+
+fn render_root_frame(game: &str, frame: usize, size: UVec2) -> engine::image::RgbaImage {
+    let assets = game::content::assets(None);
+    let prefix = format!("feudalism/{game}/");
+    let lib = Library::from_json(
+        &assets.read(&format!("{prefix}library.json")).unwrap(),
+        Some(&assets.read(&format!("{prefix}texts.json")).unwrap()),
+    )
+    .unwrap();
+    let mut events = Vec::new();
+    let mut root = Clip::root(&lib, &mut events);
+    root.goto(&lib, frame - 1, false, &mut events);
+    let viewport = Viewport::fit(Vec2::new(lib.stage.width, lib.stage.height), size);
+    let mut renderer = Renderer::headless().unwrap();
+    let mut meshes = MovieMeshes::new(assets, &prefix);
+    let commands = root.draw_commands(&lib, Affine2::IDENTITY, ColorTransform::IDENTITY);
+    let mut list = DrawList::new(Color::from_hex(&lib.stage.background).unwrap());
+    let stats = meshes.draw(&mut renderer, &lib, &commands, viewport.scale, &mut list);
+    assert_eq!(
+        stats.failed, 0,
+        "{game} kare {frame}: çizilemeyen sembol var"
+    );
+    assert!(stats.drawn > 100, "{game} kare {frame}: çok az çizim");
+    renderer.render_to_image(&viewport, &list).unwrap()
+}
+
+#[test]
+fn main_menus_snapshot() {
+    let reference = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/reference");
+    for game in ["f1", "f2"] {
+        let image = render_root_frame(game, 4, UVec2::new(400, 300));
+        // Sahnenin arka plan rengi (gökyüzünün üst köşesi)
+        assert_eq!(image.pixel(2, 2), [0x35, 0x56, 0x7B, 255], "{game}");
+        if let Err(e) = check(
+            &format!("feudalism-{game}-ana-menu"),
+            &reference,
+            &image,
+            Tolerance::RENDERER,
+        ) {
+            panic!("{e}");
+        }
+    }
+}

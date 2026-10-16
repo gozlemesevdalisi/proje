@@ -195,3 +195,123 @@ fn translation_tables_and_drawn_texts_are_embedded() {
         tessellate(&image, 0.1).expect("Öldün... çizimi üçgenlenir");
     }
 }
+
+#[test]
+fn both_movies_play_every_root_frame_and_draw_only_imported_symbols() {
+    use engine::glam::Affine2;
+    use engine::movie::{Clip, DrawCommand, DrawKind, Library};
+    use engine::render::ColorTransform;
+
+    for game in ["f1", "f2"] {
+        let lib = Library::from_json(
+            embedded(&format!("feudalism/{game}/library.json")),
+            Some(embedded(&format!("feudalism/{game}/texts.json"))),
+        )
+        .unwrap_or_else(|e| panic!("{game}: {e}"));
+        let mut events = Vec::new();
+        let mut root = Clip::root(&lib, &mut events);
+        let frames = root.frame_count(&lib);
+        let mut drawn = 0;
+        for frame in 0..frames {
+            root.goto(&lib, frame, false, &mut events);
+            // Her ekranın içindeki sprite'lar birkaç kare oynatılır
+            for _ in 0..3 {
+                root.tick(&lib, &mut events);
+            }
+            for cmd in root.draw_commands(&lib, Affine2::IDENTITY, ColorTransform::IDENTITY) {
+                let item = match cmd {
+                    DrawCommand::Draw(item) => item,
+                    DrawCommand::MaskStart(items) if !items.is_empty() => items[0].clone(),
+                    _ => continue,
+                };
+                drawn += 1;
+                let file = match item.kind {
+                    DrawKind::Shape(id) => format!("feudalism/{game}/shapes/{id}.svg"),
+                    DrawKind::BitmapShape(id) => format!("feudalism/{game}/shapes-bitmap/{id}.svg"),
+                    DrawKind::Morph { id, ratio } => {
+                        assert!(
+                            (0.0..=1.0).contains(&ratio),
+                            "{game} morph {id}: oran {ratio}"
+                        );
+                        format!("feudalism/{game}/morphs/{id}.start.svg")
+                    }
+                    DrawKind::Text(_) | DrawKind::EditText(_) => continue,
+                };
+                assert!(
+                    EMBEDDED.iter().any(|(n, _)| *n == file),
+                    "{game} kare {}: çizilecek {file} yok",
+                    frame + 1
+                );
+            }
+        }
+        assert!(drawn > 1000, "{game}: çok az çizim ({drawn})");
+        // Dışarıda bırakılan sponsor parçaları hiçbir karede çizilmez
+        for frame in 0..frames {
+            root.goto(&lib, frame, false, &mut events);
+            for cmd in root.draw_commands(&lib, Affine2::IDENTITY, ColorTransform::IDENTITY) {
+                if let DrawCommand::Draw(item) = cmd
+                    && let DrawKind::Shape(id)
+                    | DrawKind::BitmapShape(id)
+                    | DrawKind::Morph { id, .. } = item.kind
+                {
+                    assert!(
+                        !lib.excluded.contains_key(&id),
+                        "{game} kare {}: {id} dışarıda",
+                        frame + 1
+                    );
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn every_morph_has_matching_ends_and_interpolates() {
+    use engine::morph::lerp_image;
+    let mut count = 0;
+    let mut failures = Vec::new();
+    for (name, data) in EMBEDDED
+        .iter()
+        .filter(|(n, _)| n.starts_with("feudalism/") && n.ends_with(".start.svg"))
+    {
+        count += 1;
+        let end = embedded(&name.replace(".start.svg", ".end.svg"));
+        let result = load_svg(data)
+            .and_then(|a| load_svg(end).map(|b| (a, b)))
+            .map_err(|e| e.to_string())
+            .and_then(|(a, b)| lerp_image(&a, &b, 0.5).map_err(|e| e.to_string()))
+            .and_then(|m| tessellate(&m, 0.1).map_err(|e| e.to_string()));
+        if let Err(e) = result {
+            failures.push(format!("{name}: {e}"));
+        }
+    }
+    assert_eq!(count, 11 + 24, "morph sayısı");
+    assert!(
+        failures.is_empty(),
+        "ara hâli kurulamayan morph'lar:\n{}",
+        failures.join("\n")
+    );
+}
+
+#[test]
+fn hairline_indices_point_at_stroked_paths() {
+    // library.json "hairlines": şekil → [yolun SVG'deki sırası, özgün kalınlık]. Motor bu sırayla
+    // vektör resmin şeklini bulur ve çizgisini en az 1 ekran pikseli yapar.
+    let mut checked = 0;
+    for game in ["f1", "f2"] {
+        let lib = json(&format!("feudalism/{game}/library.json"));
+        for (id, list) in lib["hairlines"].as_object().unwrap() {
+            let image = load_svg(embedded(&format!("feudalism/{game}/shapes/{id}.svg"))).unwrap();
+            for entry in list.as_array().unwrap() {
+                let index = entry[0].as_u64().unwrap() as usize;
+                let shape = image
+                    .shapes
+                    .get(index)
+                    .unwrap_or_else(|| panic!("{game} {id}: yol {index} yok"));
+                assert!(shape.stroke.is_some(), "{game} {id}: yol {index} çizgisiz");
+                checked += 1;
+            }
+        }
+    }
+    assert_eq!(checked, 35 + 48, "ince çizgi sayısı");
+}

@@ -144,12 +144,37 @@ impl fmt::Debug for GpuMesh {
     }
 }
 
+/// Bir çizimin geçişi: görünen çizim ya da maske (kalıp arabelleği) işlemi.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+enum Pass {
+    /// Kalıp değeri maske düzeyine eşit piksellere çizer.
+    Draw,
+    /// Renk yazmaz; şeklin altındaki piksellerin maske düzeyini bir artırır.
+    MaskPush,
+    /// Renk yazmaz; şeklin altındaki piksellerin maske düzeyini bir azaltır.
+    MaskPop,
+}
+
+#[derive(Clone, Debug)]
+struct DrawEntry {
+    mesh: GpuMesh,
+    instance: GpuInstance,
+    pass: Pass,
+    /// Kalıp karşılaştırma değeri (maske düzeyi).
+    level: u32,
+}
+
 /// Bir karede çizilecekler, çizim sırasıyla.
+///
+/// Maskeler (Flash'taki gibi): [`DrawList::push_mask`] ile verilen şekiller görünmez; sonraki çizimler
+/// [`DrawList::pop_mask`]'a kadar yalnız bu şekillerin içinde görünür. Maskeler iç içe olabilir;
+/// içteki çizim bütün açık maskelerin kesişiminde görünür.
 #[derive(Clone, Debug)]
 pub struct DrawList {
     /// Mantıksal alanın arka plan rengi.
     pub clear: Color,
-    items: Vec<(GpuMesh, GpuInstance)>,
+    items: Vec<DrawEntry>,
+    masks: Vec<Vec<(GpuMesh, GpuInstance)>>,
 }
 
 impl DrawList {
@@ -157,6 +182,7 @@ impl DrawList {
         DrawList {
             clear,
             items: Vec::new(),
+            masks: Vec::new(),
         }
     }
 
@@ -166,8 +192,46 @@ impl DrawList {
 
     pub fn draw_with(&mut self, mesh: &GpuMesh, transform: Affine2, color: ColorTransform) {
         if mesh.0.index_count > 0 {
-            self.items
-                .push((mesh.clone(), GpuInstance::new(transform, color)));
+            self.items.push(DrawEntry {
+                mesh: mesh.clone(),
+                instance: GpuInstance::new(transform, color),
+                pass: Pass::Draw,
+                level: self.masks.len() as u32,
+            });
+        }
+    }
+
+    /// Maske açar: şekiller görünmez, sonraki çizimler yalnız onların içinde görünür.
+    pub fn push_mask(&mut self, shapes: &[(GpuMesh, Affine2)]) {
+        let level = self.masks.len() as u32;
+        let shapes: Vec<(GpuMesh, GpuInstance)> = shapes
+            .iter()
+            .filter(|(m, _)| m.0.index_count > 0)
+            .map(|(m, t)| (m.clone(), GpuInstance::new(*t, ColorTransform::IDENTITY)))
+            .collect();
+        for (mesh, instance) in &shapes {
+            self.items.push(DrawEntry {
+                mesh: mesh.clone(),
+                instance: *instance,
+                pass: Pass::MaskPush,
+                level,
+            });
+        }
+        self.masks.push(shapes);
+    }
+
+    /// En son açılan maskeyi kapatır (açık maske yoksa bir şey yapmaz).
+    pub fn pop_mask(&mut self) {
+        let level = self.masks.len() as u32;
+        if let Some(shapes) = self.masks.pop() {
+            for (mesh, instance) in shapes {
+                self.items.push(DrawEntry {
+                    mesh,
+                    instance,
+                    pass: Pass::MaskPop,
+                    level,
+                });
+            }
         }
     }
 
@@ -184,7 +248,12 @@ struct MsaaTarget {
     format: wgpu::TextureFormat,
     size: UVec2,
     view: wgpu::TextureView,
+    /// Maskeler için kalıp arabelleği (çok örneklemeli, renk hedefiyle aynı boyda).
+    stencil: wgpu::TextureView,
 }
+
+/// Maskelerin kalıp arabelleğinin biçimi.
+const STENCIL_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Stencil8;
 
 pub struct Renderer {
     device: wgpu::Device,
@@ -193,7 +262,7 @@ pub struct Renderer {
     shader: wgpu::ShaderModule,
     pipeline_layout: wgpu::PipelineLayout,
     bind_group_layout: wgpu::BindGroupLayout,
-    pipelines: HashMap<wgpu::TextureFormat, wgpu::RenderPipeline>,
+    pipelines: HashMap<(wgpu::TextureFormat, Pass), wgpu::RenderPipeline>,
     sampler: wgpu::Sampler,
     view_buffer: wgpu::Buffer,
     paints: PaintTable,
@@ -386,11 +455,22 @@ impl Renderer {
         }))
     }
 
-    fn pipeline(&mut self, format: wgpu::TextureFormat) -> &wgpu::RenderPipeline {
+    fn pipeline(&mut self, format: wgpu::TextureFormat, pass: Pass) {
         let device = &self.device;
         let shader = &self.shader;
         let layout = &self.pipeline_layout;
-        self.pipelines.entry(format).or_insert_with(|| {
+        self.pipelines.entry((format, pass)).or_insert_with(|| {
+            let pass_op = match pass {
+                Pass::Draw => wgpu::StencilOperation::Keep,
+                Pass::MaskPush => wgpu::StencilOperation::IncrementClamp,
+                Pass::MaskPop => wgpu::StencilOperation::DecrementClamp,
+            };
+            let face = wgpu::StencilFaceState {
+                compare: wgpu::CompareFunction::Equal,
+                fail_op: wgpu::StencilOperation::Keep,
+                depth_fail_op: wgpu::StencilOperation::Keep,
+                pass_op,
+            };
             device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
                 label: Some("vektör boru hattı"),
                 layout: Some(layout),
@@ -418,7 +498,18 @@ impl Renderer {
                     cull_mode: None,
                     ..Default::default()
                 },
-                depth_stencil: None,
+                depth_stencil: Some(wgpu::DepthStencilState {
+                    format: STENCIL_FORMAT,
+                    depth_write_enabled: Some(false),
+                    depth_compare: Some(wgpu::CompareFunction::Always),
+                    stencil: wgpu::StencilState {
+                        front: face,
+                        back: face,
+                        read_mask: 0xff,
+                        write_mask: 0xff,
+                    },
+                    bias: wgpu::DepthBiasState::default(),
+                }),
                 multisample: wgpu::MultisampleState {
                     count: SAMPLE_COUNT,
                     mask: !0,
@@ -431,13 +522,17 @@ impl Renderer {
                     targets: &[Some(wgpu::ColorTargetState {
                         format,
                         blend: Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING),
-                        write_mask: wgpu::ColorWrites::ALL,
+                        write_mask: if pass == Pass::Draw {
+                            wgpu::ColorWrites::ALL
+                        } else {
+                            wgpu::ColorWrites::empty()
+                        },
                     })],
                 }),
                 multiview_mask: None,
                 cache: None,
             })
-        })
+        });
     }
 
     /// Boya tablosundaki yenilikleri grafik kartına gönderir.
@@ -500,12 +595,17 @@ impl Renderer {
         self.paints.dirty = false;
     }
 
-    fn msaa_view(&mut self, format: wgpu::TextureFormat, size: UVec2) -> wgpu::TextureView {
+    /// Çok örneklemeli renk hedefi ve kalıp arabelleği (boy ya da biçim değişince yeniden kurulur).
+    fn msaa_view(
+        &mut self,
+        format: wgpu::TextureFormat,
+        size: UVec2,
+    ) -> (wgpu::TextureView, wgpu::TextureView) {
         if let Some(m) = &self.msaa
             && m.format == format
             && m.size == size
         {
-            return m.view.clone();
+            return (m.view.clone(), m.stencil.clone());
         }
         let texture = self.device.create_texture(&wgpu::TextureDescriptor {
             label: Some("MSAA hedefi"),
@@ -522,12 +622,30 @@ impl Renderer {
             view_formats: &[],
         });
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let stencil = self
+            .device
+            .create_texture(&wgpu::TextureDescriptor {
+                label: Some("maske kalıbı"),
+                size: wgpu::Extent3d {
+                    width: size.x,
+                    height: size.y,
+                    depth_or_array_layers: 1,
+                },
+                mip_level_count: 1,
+                sample_count: SAMPLE_COUNT,
+                dimension: wgpu::TextureDimension::D2,
+                format: STENCIL_FORMAT,
+                usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+                view_formats: &[],
+            })
+            .create_view(&wgpu::TextureViewDescriptor::default());
         self.msaa = Some(MsaaTarget {
             format,
             size,
             view: view.clone(),
+            stencil: stencil.clone(),
         });
-        view
+        (view, stencil)
     }
 
     /// Çizim listesini hedef dokuya çizer. `format`, hedef görünümün biçimidir ve "sRGB"
@@ -563,7 +681,12 @@ impl Renderer {
                 Affine2::from_scale(viewport.logical),
                 ColorTransform::multiply(list.clear),
             );
-            items.push((self.background.clone(), bg));
+            items.push(DrawEntry {
+                mesh: self.background.clone(),
+                instance: bg,
+                pass: Pass::Draw,
+                level: 0,
+            });
         }
         items.extend(list.items.iter().cloned());
 
@@ -574,7 +697,7 @@ impl Renderer {
             }
             self.instance_buffer = create_instance_buffer(&self.device, self.instance_capacity);
         }
-        let instances: Vec<GpuInstance> = items.iter().map(|(_, i)| *i).collect();
+        let instances: Vec<GpuInstance> = items.iter().map(|e| e.instance).collect();
         self.queue
             .write_buffer(&self.instance_buffer, 0, bytemuck::cast_slice(&instances));
         let (row0, row1) = affine_rows(viewport.clip_transform());
@@ -586,11 +709,10 @@ impl Renderer {
         self.queue
             .write_buffer(&self.view_buffer, 0, bytemuck::bytes_of(&view));
 
-        let msaa = self.msaa_view(format, size);
-        self.pipeline(format);
-        let Some(pipeline) = self.pipelines.get(&format) else {
-            return;
-        };
+        let (msaa, stencil) = self.msaa_view(format, size);
+        for pass in [Pass::Draw, Pass::MaskPush, Pass::MaskPop] {
+            self.pipeline(format, pass);
+        }
         let mut encoder = self
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
@@ -614,7 +736,14 @@ impl Renderer {
                         store: wgpu::StoreOp::Discard,
                     },
                 })],
-                depth_stencil_attachment: None,
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: &stencil,
+                    depth_ops: None,
+                    stencil_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(0),
+                        store: wgpu::StoreOp::Discard,
+                    }),
+                }),
                 timestamp_writes: None,
                 occlusion_query_set: None,
                 multiview_mask: None,
@@ -631,13 +760,24 @@ impl Renderer {
                 x1.saturating_sub(x0).max(1),
                 y1.saturating_sub(y0).max(1),
             );
-            pass.set_pipeline(pipeline);
             pass.set_bind_group(0, &self.bind_group, &[]);
             pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
-            for (i, (mesh, _)) in items.iter().enumerate() {
-                let Some((vb, ib)) = &mesh.0.buffers else {
+            let mut current: Option<(Pass, u32)> = None;
+            for (i, entry) in items.iter().enumerate() {
+                let Some((vb, ib)) = &entry.mesh.0.buffers else {
                     continue;
                 };
+                if current.map(|c| c.0) != Some(entry.pass) {
+                    let Some(pipeline) = self.pipelines.get(&(format, entry.pass)) else {
+                        continue;
+                    };
+                    pass.set_pipeline(pipeline);
+                }
+                if current.map(|c| c.1) != Some(entry.level) {
+                    pass.set_stencil_reference(entry.level);
+                }
+                current = Some((entry.pass, entry.level));
+                let mesh = &entry.mesh;
                 pass.set_vertex_buffer(0, vb.slice(..));
                 pass.set_index_buffer(ib.slice(..), wgpu::IndexFormat::Uint32);
                 let i = i as u32;
