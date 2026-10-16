@@ -217,10 +217,18 @@ class Shapes(unittest.TestCase):
         self.assertNotIn("<?xml", text)
         self.assertIn('<path d="M0 0 L1 1" fill="#ff0000"/>', text)
 
-    def test_hyphenated_ffdec_attributes_are_removed(self):
+    def test_hairline_hints_are_kept_as_data_attributes(self):
         svg = ('<svg xmlns:ffdec="x"><g transform="matrix(1.0, 0.0, 0.0, 1.0, 0.0, 0.0)"><path d="M0 0" stroke="#000000" '
-               'ffdec:has-small-stroke="true" ffdec:original-stroke-width="0.5"/></g></svg>')
-        self.assertNotIn("ffdec", aktar.convert_shape(svg)[0])
+               'ffdec:has-small-stroke="true" ffdec:original-stroke-width="0.05"/></g></svg>')
+        text = aktar.convert_shape(svg)[0]
+        self.assertNotIn("ffdec", text)
+        self.assertIn('data-hairline="true"', text)
+        self.assertIn('data-original-stroke-width="0.05"', text)
+
+    def test_hairline_paths_are_listed_by_document_order(self):
+        svg = ('<svg><path d="M0 0" fill="#000000"/><path d="M0 0" stroke="#000000" data-hairline="true" '
+               'data-original-stroke-width="0.05"/><path d="M1 1"/></svg>')
+        self.assertEqual(aktar.hairlines(svg), [[1, 0.05]])
 
     def test_bitmap_filled_shape_is_skipped(self):
         self.assertIsNone(aktar.convert_shape('<svg><pattern><image href="x"/></pattern></svg>'))

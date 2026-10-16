@@ -140,6 +140,26 @@ def scripts_by_sprite(scripts):
 # --- Şekiller ------------------------------------------------------------------------------------
 
 FFDEC_ATTR = re.compile(r'\s+(?:xmlns:)?ffdec(?::[\w-]+)?="[^"]*"')
+# Flash'ta 1 pikselden ince çizgi (kıl çizgi) her ölçekte 1 ekran pikseli çizilir. FFDec bunu işaretler;
+# işaret ve özgün kalınlık data- öznitelikleri olarak korunur (motor kıl çizgiyi buna göre çizer).
+HAIRLINE = re.compile(r'\s+ffdec:has-small-stroke="true"')
+ORIGINAL_WIDTH = re.compile(r'\s+ffdec:original-stroke-width="([^"]*)"')
+
+
+def hairlines(svg):
+    """Kıl çizgi yolları: [[<path> öğesinin belgedeki sırası (0'dan), özgün kalınlık]]."""
+    out = []
+    for i, m in enumerate(re.finditer(r"<path\b[^>]*>", svg)):
+        tag = m.group(0)
+        if 'data-hairline="true"' in tag:
+            w = re.search(r'data-original-stroke-width="([^"]*)"', tag)
+            out.append([i, float(w.group(1)) if w else 0.0])
+    return out
+
+
+def keep_stroke_hints(svg):
+    svg = HAIRLINE.sub(' data-hairline="true"', svg)
+    return ORIGINAL_WIDTH.sub(lambda m: f' data-original-stroke-width="{m.group(1)}"', svg)
 TRANSLATE = re.compile(r'<g transform="matrix\(1\.0, 0\.0, 0\.0, 1\.0, (-?[\d.]+), (-?[\d.]+)\)">')
 
 
@@ -152,7 +172,7 @@ def convert_shape(svg):
         return None
     m = TRANSLATE.search(svg)
     origin = (-float(m.group(1)), -float(m.group(2))) if m else (0.0, 0.0)
-    out = FFDEC_ATTR.sub("", svg)
+    out = FFDEC_ATTR.sub("", keep_stroke_hints(svg))
     out = re.sub(r"<\?xml[^>]*\?>\s*", "", out)
     out = re.sub(r">\s+<", "><", out).strip() + "\n"
     return out, origin
@@ -229,7 +249,7 @@ def transform_matrix(kind, value):
 
 
 def clean_svg(svg):
-    out = FFDEC_ATTR.sub("", svg)
+    out = FFDEC_ATTR.sub("", keep_stroke_hints(svg))
     out = re.sub(r"<\?xml[^>]*\?>\s*", "", out)
     out = re.sub(r">\s+<", "><", out).strip() + "\n"
     # ElementTree'nin yazdığı ad alanı öneki (ns0:) varsa düz SVG'ye çevrilir
@@ -341,7 +361,7 @@ def build(game, swf_path, archive, out_dir, code_dir):
     for sub in ("shapes", "shapes-bitmap", "morphs", "images", "sounds"):
         reset_dir(os.path.join(out_dir, sub))
     # Şekiller
-    shapes, bitmap_shapes = {}, {}
+    shapes, bitmap_shapes, hairline_paths = {}, {}, {}
     for sid in keep("shape"):
         with open(os.path.join(archive, "shapes", f"{sid}.svg"), encoding="utf-8") as f:
             raw = f.read()
@@ -352,6 +372,9 @@ def build(game, swf_path, archive, out_dir, code_dir):
         else:
             (text, origin), sub = converted, "shapes"
             shapes[str(sid)] = round_list(origin, 3)
+            lines = hairlines(text)
+            if lines:
+                hairline_paths[str(sid)] = lines
         with open(os.path.join(out_dir, sub, f"{sid}.svg"), "w", encoding="utf-8") as f:
             f.write(text)
         where[sid] = f"{sub}/{sid}.svg"
@@ -434,6 +457,8 @@ def build(game, swf_path, archive, out_dir, code_dir):
         "exports": dict(sorted(exports.items())),
         "shapes": shapes,
         "bitmap_shapes": bitmap_shapes,
+        # Kıl çizgiler: şekil → [[yolun belgedeki sırası, özgün kalınlık]]; her ölçekte 1 ekran pikseli
+        "hairlines": hairline_paths,
         "morphs": morphs,
         "images": images,
         "sounds": sounds,
