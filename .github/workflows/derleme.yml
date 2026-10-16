@@ -25,7 +25,7 @@ jobs:
       - name: Sistem paketlerini kur (yazılımla çalışan Vulkan sürücüsü dahil)
         run: |
           sudo apt-get update
-          sudo apt-get install -y mesa-vulkan-drivers libvulkan1 libx11-dev libxkbcommon-dev libwayland-dev python3-pil
+          sudo apt-get install -y mesa-vulkan-drivers libvulkan1 libx11-dev libxkbcommon-dev libwayland-dev python3-pil python3-numpy
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: "1.99.0"

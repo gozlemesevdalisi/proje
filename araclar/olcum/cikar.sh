@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Esin kaynağının çizimlerini ölçüm için çıkarır (yalnızca bu bilgisayarda kalır).
+# Feudalism 1 ve 2'nin içeriğini eksiksiz çıkarır ve oyuna aktarır.
 #
 # Kullanım (depo kökünden):  araclar/olcum/cikar.sh [swf-oyunlar klasörü]
 #
-# Çıktılar `referans/` klasörüne yazılır ve git'e GİRMEZ (.gitignore). Esinin çizimleri oyunda
-# kullanılmaz, kopyalanmaz, izlenmez; yalnızca ölçülür. Depoya yalnızca ölçüm sonuçları (olcum/,
-# docs/KARAKTER_OLCULERI.md) girer.
+# Ham dökümler `referans/` klasörüne yazılır ve git'e GİRMEZ (.gitignore): yerel arşiv ve denetimin
+# karşılaştırma kaynağıdır. Oyunun kullandığı içerik (sahibinin izniyle, bkz. docs/LISANSLAR.md)
+# 8. adımda content/feudalism/ altına aktarılır; ölçüm sonuçları olcum/ ve docs/KARAKTER_OLCULERI.md'dir.
 #
 # Adımlar:
 #   1. FFDec ile bütün şekiller SVG ve PNG (4×) olarak: referans/<oyun>/svg, referans/<oyun>/png
@@ -75,7 +75,7 @@ for oyun in f1 f2; do
   # Türler ayrı ayrı: FFDec'in bir türdeki hatası öbürlerini durdurmasın
   $FF -format shape:svg -export shape "$T" "$swf" 2>&1 | sessiz | tail -1
   $FF -format morphshape:svg -export morphshape "$T" "$swf" 2>&1 | sessiz | tail -1
-  $FF -format morphshape:png_start_end -export morphshape "$T/morph-png" "$swf" 2>&1 | sessiz | tail -1
+  $FF -format morphshape:png_start_end -zoom 4 -export morphshape "$T/morph-png" "$swf" 2>&1 | sessiz | tail -1
   $FF -format image:png_gif_jpeg -export image "$T" "$swf" 2>&1 | sessiz | tail -1
   $FF -format sound:mp3_wav -export sound "$T" "$swf" 2>&1 | sessiz | tail -1
   $FF -format font:ttf -export font "$T" "$swf" 2>&1 | sessiz | tail -1

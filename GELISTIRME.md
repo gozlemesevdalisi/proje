@@ -32,7 +32,7 @@ Hepsi depo kökünde çalıştırılır.
 | Bir SVG'yi resme çiz        | `cargo run -p engine --example svg-png -- girdi.svg cikti.png 2` |
 | Örnek çizimleri yeniden üret | `python3 tools/art/ciz_birlikler.py` (ayrıca `ciz_manzara.py`, `ciz_pencere.py`) |
 | Karakter ölçülerini karşılaştır | `python3 tools/art/kukla_olc.py` (önce `araclar/olcum/cikar.sh`) |
-| Esin kaynağını çıkar (yalnız bu bilgisayarda) | `araclar/olcum/cikar.sh` → `referans/` (git dışı) |
+| Oyunları eksiksiz çıkar ve aktar | `araclar/olcum/cikar.sh` → `referans/` (git dışı yerel arşiv) ve `content/feudalism/` |
 | Referans ölçüm raporu       | `python3 araclar/olcum/olcum.py rapor` → `olcum/sonuclar.md` |
 | Bir çizimi referansla karşılaştır | `python3 araclar/olcum/olcum.py karsilastir cizim.svg kahraman iskelet.json` |
 | Pozun özgünlüğü (ve üst üste çizimi) | `python3 araclar/olcum/olcum.py ortusme iskelet.json [cizim.png]` |
@@ -40,6 +40,8 @@ Hepsi depo kökünde çalıştırılır.
 | Feudalism görsellerini aktar | `python3 araclar/aktar/aktar.py` → `content/feudalism/` (önce `araclar/olcum/cikar.sh`) |
 | Aktarım aracının testleri   | `python3 -m unittest discover -s araclar/aktar -p 'test_*.py'` |
 | Oyunların içerik dökümü     | `python3 araclar/aktar/envanter.py` → `docs/FEUDALISM_ICERIK.md` |
+| Ayıklama denetimi           | `python3 araclar/aktar/denetim.py --gorsel` → `docs/AYIKLAMA_DENETIMI.md` (önce `cargo build --release -p engine --example svg-batch`) |
+| Çok sayıda SVG'yi resme çiz | `cargo run --release -p engine --example svg-batch -- liste.txt` (satır: `girdi.svg<TAB>cikti.png<TAB>ölçek`) |
 | Ölçüm aracının testleri     | `python3 -m unittest discover -s araclar/olcum -p 'test_*.py'` |
 | Sanat kurallarını denetle   | `cargo test -p game --test art_rules`                     |
 
@@ -79,6 +81,9 @@ Görseller ve lisanslar:
 - Görseller `araclar/aktar/aktar.py` ile orijinal SWF dosyalarından `content/feudalism/` altına
   aktarılır; elle değiştirilmez. Oyunun yazarına ait olmayanlar aktarılmaz: sponsor logoları,
   Macromedia/Adobe arayüz bileşenleri, gömülü yazı tipleri.
+- Aktarım aracı ya da motorun çizimi değiştiğinde `python3 araclar/aktar/denetim.py --gorsel`
+  çalıştırılır ve "Toplam sorun: 0" ile bitmelidir. Denetim her kaydı FFDec'in bağımsız XML dökümüyle,
+  her şekli FFDec'in çizimiyle piksel piksel karşılaştırır (rapor: `docs/AYIKLAMA_DENETIMI.md`).
 - Dışarıdan alınan her varlık (yazı tipi, ses, müzik) eklenmeden önce lisansı doğrulanır ve kaynağıyla
   birlikte `docs/LISANSLAR.md` içine yazılır. AGPL ve ticari kullanımı yasaklayan lisanslar kabul edilmez.
 
