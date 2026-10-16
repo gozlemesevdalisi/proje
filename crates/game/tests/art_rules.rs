@@ -22,8 +22,9 @@ const MAX_STOPS: usize = 3;
 const MAX_GRADIENT_TILT: f32 = 15.0;
 /// Karakterde degradeyle boyanmış şekillerin en fazla oranı.
 const MAX_CHARACTER_GRADIENT_SHARE: f32 = 0.35;
-/// Karakter yollarındaki eğri parça oranının sınırları (hedef %50–65).
-const CHARACTER_CURVE_RATIO: (f32, f32) = (0.40, 0.75);
+/// Karakter yollarındaki eğri parça oranının sınırları. Esin kaynağının 18 savaş kuklasında
+/// ölçülen: %56–67, ortanca %60 (bkz. docs/KARAKTER_OLCULERI.md).
+const CHARACTER_CURVE_RATIO: (f32, f32) = (0.50, 0.70);
 /// Karakterde izin verilen en kalın çizgi (yay kirişi, ip): SVG birimi.
 const MAX_CHARACTER_STROKE: f32 = 1.5;
 /// Manzara katmanında yarı saydam şekillerin en fazla oranı (siyah gölge ve beyaz ışık hariç).
@@ -321,7 +322,9 @@ fn character_curve_ratio_and_gradient_share_are_checked() {
     assert!(p.iter().any(|s| s.contains("eğri parça oranı %0")), "{p:?}");
 
     // Yarısı eğri, yarısı düz: kabul.
-    let mixed = svg(r##"<path d="M0 0 Q50 10 100 0 L100 100 Q50 90 0 100 Z" fill="#CC0000"/>"##);
+    let mixed = svg(
+        r##"<path d="M0 0 Q50 10 100 0 L100 100 Q50 90 0 100 L0 0 Q-5 50 0 100 Z" fill="#CC0000"/>"##,
+    );
     assert!(problems(&mixed, Kind::Character, &small_palette()).is_empty());
 
     let graded = svg(

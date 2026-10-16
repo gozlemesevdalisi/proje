@@ -107,23 +107,45 @@ aşağıdaki yolla yeniden üretilir.
    - **Harita:** yeni oyundan sonra.
 5. Sahne alanının görüntüsünü al.
 
+Karakter kuklaları ekran görüntüsünden değil, oyunların kendi dosyalarından ölçülür:
+
+```sh
+tools/referans/cikar.sh ../swf-oyunlar
+```
+
+Bu komut şunları yapar:
+
+1. FFDec ile iki oyunun bütün şekillerini SVG olarak ve kodunu dışa aktarır.
+2. Karakter kuklasını oyunun kendi kodundaki formüllerle (ulus, cinsiyet, zırh, miğfer, silah, duruş)
+   birleştirir. 18 birlik çıkarılır: kılıçlı, mızrakçı, okçu, baltacı, köylü, kadın asker, bozkır
+   birlikleri.
+3. Her parçayı kendi ekseninde ölçer ve `docs/KARAKTER_OLCULERI.md` dosyasını yazar.
+
+Çıkarılan SVG ve PNG'ler `referans/` klasöründe kalır; bu klasör git'e girmez.
+
 Ölçüm betikleri `tools/referans/` klasöründedir:
 
 | Betik                 | Ne yapar                                                                      |
 | --------------------- | ----------------------------------------------------------------------------- |
+| `cikar.sh`            | Bütün çıkarma ve ölçüm adımlarını sırayla çalıştırır                          |
+| `swf_kukla.py`        | SWF'deki sprite zaman çizelgelerini okur, kuklayı seçilen karelerle birleştirir |
+| `birlikler.py`        | Oyunun birlik tanımlarını (donanım, kare formülleri) kuklaya uygular          |
+| `olc.py`              | Parça boyları, enleri, profilleri, silah tutuşu, renkler → `docs/KARAKTER_OLCULERI.md` |
+| `durus.py`            | Bir animasyon karesinin eklem yerlerini ve açılarını ölçer                    |
 | `swfstats.py`         | SWF'deki şekilleri çözer (dolgu, çizgi, kenar)                                |
-| `char_palette.py`     | Bir kuklaya bağlı bütün şekillerin renklerini sayar                           |
-| `sample_materials.py` | Kahraman seçim ekranında malzeme başına ana, açık ve koyu rengi ölçer         |
-
-Kutu koordinatları betiklerin içindedir; hepsi 800×600 sahne koordinatıdır.
+| `sample_materials.py` | Kahraman seçim ekranında malzeme başına renk ölçer (ekran görüntüsünden)       |
 
 ## Ölçümler
 
-### Savaş kuklaları (SWF'den sayıldı)
+### Savaş kuklaları (oyun dosyalarından ölçüldü)
 
-- **Dolgu:** 1022 düz renk dolgu, 0 degrade.
-- **Çizgi:** kenarların yalnızca %1,4'ü çizgili; çizgiler yay kirişi gibi doğası çizgi olan şeyler.
-- **Tonlar:** her parça 2 düz ton (ana renk ve keskin kenarlı gölge).
+Ayrıntılı sayılar: [KARAKTER_OLCULERI.md](KARAKTER_OLCULERI.md). Özet:
+
+- **Dolgu:** 903 dolgunun hiçbiri degrade değil. Savaş kuklası tamamen düz renktir.
+- **Çizgi:** dış hat yok. İnce çizgi (0,25 piksel) yalnızca yüzde (kaş, burun, göz) ve gövdede.
+- **Parça:** her parça tek bir şekildir; içinde 1–10 düz renk vardır (giysi, şerit, kemer, bilezik).
+  Metal (kılıç, mızrak ucu) ortadan bölünmüş iki tondur.
+- **Eğri oranı:** kenarların %56–67'si eğri (ortanca %60), kalanı düz çizgi.
 
 ### Büyük resimler (kahraman seçimi, 4× ekran görüntüsünden)
 
@@ -377,8 +399,8 @@ Esin kaynağında ışık yönü tutarsızdır; bizde bu düzeltilir.
 - **Renk sayısı:** bir kahramanda 18–28 ayrı renk; bir parçada en fazla 3 ton (ana, gölge, ışık ya da
   şerit).
 - **Düz renk payı:** figürde düz renkli alan en az %55, degradeli alan en fazla %30–35 olur.
-- **Savaş kuklası:** büyük resimlerden daha sadedir. Yalnızca 2 düz ton kullanılır; degrade yalnızca
-  metalde olabilir.
+- **Savaş kuklası:** büyük resimlerden daha sadedir. Esinde hiç degrade yoktur; her malzeme tek düz
+  renktir. Metal ortadan bölünmüş iki tondur. Gölge şekli yoktur.
 
 ## Degrade
 
@@ -416,39 +438,45 @@ Esin kaynağında ışık yönü tutarsızdır; bizde bu düzeltilir.
 
 ## Şekil, köşe ve eğri
 
-- **Kural:** Şekiller eğridir, kenarları keskindir. Karakter yollarında eğri parçaların oranı
-  **%50–65** olur.
-  - Otomatik denetim %40–75 dışını reddeder.
-  - %40'ın altı çokgen ve "low-poly" görünüş demektir; %75'in üstü yuvarlak ve yumuşak.
+- **Kural:** Şekiller eğridir, kenarları keskindir. Esinin savaş kuklalarında kenarların **%56–67**'si
+  eğri, kalanı düz (ortanca %60).
+  - Otomatik denetim karakterlerde %50–70 dışını reddeder.
+  - Altı çokgen ve "low-poly" görünüş demektir; üstü yuvarlak ve yumuşak.
+  - Çizim araçları kontrol noktaları kirişe çok yakın olan eğri parçayı düz çizgi olarak yazar
+    (esindeki gibi).
 - **Kural:** Her ana şekilde en az bir **sivri köşe** bulunur. Sivri köşe, iki eğrinin teğet olmadan,
   kırılarak birleştiği yerdir.
 - **Sivri uçlar:** kol ağzı, etek köşesi, çizme burnu, saç tutamı, sakal, tüy, yaprak, ot.
-- **Uzuvlar:** bir kenar düze yakın, öbür kenar şişkin çizilir. Kapsül şekil yasaktır.
-  - Pazı, ön kol ve baldır şişkindir.
-  - Bilek, ön kolun en geniş yerinin %55–65'i kadar daralır.
-  - Dirsek, diz ve ayak bileği de daralır.
+- **Uzuvlar:** parçaların enine kesitleri esindeki profillere uyar (bkz. "Karakterler"). Kapsül şekil
+  yasaktır.
 
 ## Karakterler
 
-### Oranlar
+### Oranlar (savaş kuklası)
 
-Baş = 64 birim. Başlık hariç; kafatası ve çeneden ibarettir.
+Bütün sayılar esinin 18 birliğinden ölçüldü ([KARAKTER_OLCULERI.md](KARAKTER_OLCULERI.md)). Birim:
+baş yüksekliği (saç dahil, başlık hariç); çizimde baş = 64 birim.
 
-| Ölçü                                     | Kahraman                         | Asker                 | Esinde ölçülen |
-| ---------------------------------------- | -------------------------------- | --------------------- | -------------- |
-| Boy                                      | 7–7,5 baş                        | 6,8–7,2 baş           | 7,1–7,6        |
-| Baş genişliği                            | Baş boyunun 0,62–0,7'si          | Aynı                  | 0,6            |
-| Baş kütlesi (başlık, saç, sakal dahil)   | Boyun en fazla %18'i             | Boyun en fazla %18'i  | %14            |
-| Omuz genişliği                           | Baş kütlesi genişliğinin 3,2–3,6 katı | 2,8–3,2 katı     | 3,5            |
-| Omuz / bel                               | 1,4–1,6                          | 1,3–1,45              | —              |
-| Boyun                                    | Baş genişliğinin en az %70'i     | Aynı                  | Kalın          |
-| Ön kolun en geniş yeri                   | Yüz genişliğinin 0,8–1,0'ı       | 0,7–0,85              | ~1,0           |
-| Yumruk                                   | Yüz genişliğinin 0,85–1,0'ı      | 0,75–0,9              | ~1,0           |
-| Uyluk                                    | 0,65–0,8 baş                     | 0,6–0,7 baş           | 0,6–0,77       |
-| Ayak ya da çizme                         | 1,15–1,3 baş; çizme ağzı ~0,6 baş | 1,1–1,2 baş          | —              |
-| Bacak                                    | Boyun %47–50'si                  | Aynı                  | —              |
+| Ölçü                         | Değer (ortanca) | Not                                   |
+| ---------------------------- | --------------- | ------------------------------------- |
+| Ayakta boy                   | 6,2 baş         | Bacaklar boyun yarısından uzun        |
+| Boyun–kalça                  | 2,05            |                                       |
+| Uyluk (kalça–diz)            | 1,51            |                                       |
+| Diz–taban                    | 1,92            |                                       |
+| Üst kol (omuz–dirsek)        | 1,25            |                                       |
+| Ön kol + el                  | 1,43            |                                       |
+| El boyu / eni                | 0,68 / 0,38     | El, ön kol kadar geniş                |
+| Ön kol eni / bilek eni       | 0,40 / 0,24     | Bilek belirgin daralır                |
+| Üst kol en geniş             | 0,57            |                                       |
+| Uyluk en geniş               | 0,71            | Dizde 0,38                            |
+| Ayak boyu                    | 0,61            |                                       |
+| Baş eni                      | 0,88            | 3/4 profil, saç dahil                 |
+| Gövde eni                    | 1,14            |                                       |
 
-Sevimliliği küçük baş, gerçekçiliği iri kol ve el engeller.
+Parçaların enine kesit profilleri (her yükseklikte ön ve arka kenar) ölçüm sayfasındadır.
+
+**Kural:** Her yeni karakter `tools/art/kukla_olc.py` ile ölçülür. Ölçüler esinin ortancasından en
+fazla %15 sapar. Sonuç `docs/KARAKTER_KARSILASTIRMA.md` dosyasına yazılır.
 
 ### Yüz
 
@@ -469,12 +497,26 @@ yalnızca uyku ve ölüm animasyonunda kullanılır.
 
 ### Duruş ve siluet
 
-- **Çaprazlar:** her duruşta 20–50° açılı en az iki belirgin çapraz olur (silah, kol, bacak).
-- **Silah:** gövdeye paralel durmaz; arada en az 15° açı olur.
-- **Kollar:** kol ile gövde arasında en az bir yerde 0,15 baştan geniş bir boşluk kalır.
-- **Ayaklar:** seçim ekranı duruşunda iki ayak arası en az 1 baştır (A duruşu). Göğüs dışarıdadır.
+- **Duruşlar ölçülür, uydurulmaz.** Her duruş, esin kuklasının bir animasyon karesinden ölçülen eklem
+  yerleri ve açılarıdır (`tools/referans/durus.py`). Örnekler:
+  - kılıç kalkık: "sword" 11. kare;
+  - mızrakla hamle: "spear" 17. kare;
+  - yay tam gerili: "bow" 17. kare.
+- **Kural:** Yan yana duran karakterler farklı duruştadır.
 - **Kural (siluet testi):** figür 120 piksel yükseklikte tek renk çizildiğinde birlik türü tanınır.
   En az 3 çıkıntı görünür: başlık, silah, kalkan ya da pelerin.
+
+### Silah tutuşu
+
+Esin kuklasında ölçüldü:
+
+- Silahın dönme noktası **tutuş yeridir**. El, tutuş noktasının üstüne gelir; elin ortası ile tutuş
+  noktası arası en fazla 0,25 baştır.
+- **Kural:** Ön kol ve el silahın **üstüne** çizilir. Parmaklar sapın üstüne biner, sap yumruğun iki
+  yanından çıkar.
+- Tutuş yeri (silahın üst ucundan oran): tek elle kılıç 0,87; iki elle kılıç ve balta 0,86–0,90;
+  mızrak 0,66; yay 0,50.
+- Boylar: tek elle kılıç 2,5–3,8 baş, iki elle kılıç 4,9–5,3, mızrak 8–9, yay 4,3–4,6.
 
 ### Ayrıntı
 
@@ -493,20 +535,23 @@ yalnızca uyku ve ölüm animasyonunda kullanılır.
 
 ### Parçalı kukla
 
-Karakterler ayrı parçalardan kurulur. Parçalar kemiklere bağlıdır ve döndürülerek canlandırılır.
+Esin kuklasının yapısı ölçüldü ve bizim kuklamız (`tools/art/kukla.py`) aynı yapıyla kurulur:
 
-| Parça                            | Not                                                      |
-| -------------------------------- | -------------------------------------------------------- |
-| baş, saç, yüz ayrıntısı          | Yüz parçaları değiştirilebilir (kaş, burun, ağız, sakal) |
-| boyun, gövde, kalça              | Zırh gövdenin üstüne giyilir                             |
-| üst kol, ön kol, el (×2)         | Arka kol bir ton koyu çizilir                            |
-| üst bacak, alt bacak, ayak (×2)  | Arka bacak bir ton koyu çizilir                          |
-| silah, kalkan, başlık, pelerin   | Donanım; değişince görünüş değişir                       |
+| Parça           | Kapsadığı yer                | Dönme noktası          |
+| --------------- | ---------------------------- | ---------------------- |
+| `ust-kol-*`     | Omuzdan dirseğe              | Omuz                   |
+| `on-kol-*`      | Dirsekten parmak ucuna (el dahil) | Dirsek            |
+| `uyluk-*`       | Kalçadan dize                | Kalça                  |
+| `baldir-*`      | Dizden tabana (çizme dahil)  | Diz                    |
+| `govde`         | Boyundan etek ucuna          | Kalça                  |
+| `bas`           | Saç, yüz, başlık             | Boyun–çene             |
+| `silah-*`       | Silah                        | Tutuş yeri             |
 
-- **Kural:** Eklem yerlerinde parçalar birbirinin altına girer; bindirme payı en az 0,2 baştır.
-  Parça döndüğünde boşluk görünmez.
-- **Kural:** Her parçanın SVG grubu İngilizce adla işaretlenir: `head`, `torso`, `arm-upper-front`.
-- Arkadaki kol ve bacak, öndekinden bir ton koyudur; derinlik böyle verilir.
+- **Çizim sırası (arkadan öne):** üst kol (arka) → ön kol (arka) → silah (arka) → uyluk (arka) →
+  baldır (arka) → uyluk (ön) → baldır (ön) → gövde → baş → silah (ön) → üst kol (ön) → ön kol (ön).
+- Her parça kendi ekseninde çizilir: uzuv +y yönünde uzanır; yüz ve ayak ucu −x yönüne bakar.
+- **Kural:** Eklem yerlerinde parçalar birbirinin üstüne biner. Esinde bindirme payı 0,18–0,27 baştır.
+- Arka kol ve bacak öndekiyle aynı renktedir (esinde de öyle); derinliği çizim sırası verir.
 
 ### Her asker bir kişidir
 
@@ -703,7 +748,7 @@ Motorun okuduğu SVG alt kümesi:
 | Karakterde kontur                               | Yok (en fazla 1,5 birimlik ince çizgi) |
 | Manzarada kontur                                | Yok                                    |
 | Karakterde degradeli şekil oranı                | En fazla %35                           |
-| Karakter yollarında eğri parça oranı            | %40–75 (hedef %50–65)                  |
+| Karakter yollarında eğri parça oranı            | %50–70 (esinde %56–67)                 |
 | Manzarada yarı saydam şekil oranı               | En fazla %10 (siyah ve beyaz hariç)    |
 | Sahne dosyalarındaki yazı renkleri              | Paletten                               |
 | Bu belgede paletin bütün renkleri yazılı mı     | Hepsi                                  |

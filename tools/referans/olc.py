@@ -19,7 +19,7 @@ from PIL import Image, ImageDraw
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import birlikler as B  # noqa: E402
-from kukla import Birlestirici, Swf  # noqa: E402
+from swf_kukla import Birlestirici, Swf  # noqa: E402
 
 _SWF_KOK = os.environ.get("SWF_KOK", os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "swf-oyunlar"))
 SWF = {
@@ -242,6 +242,14 @@ def olc_birlik(swf, profil, ad, tanim, sekil_klasoru):
                            (bilek_y + ok[3]) / 2 / sy)
         el = uygula(am, *el_merkez_yerel)
         o["el_tutus_uzaklik"] = mesafe(el, (sm[4], sm[5]))
+    # Parçaların kendi eksenlerindeki kutuları (baş = 1): üstte eklemin ne kadar üstüne taştığı,
+    # altta ne kadar uzandığı, en geniş yeri
+    o["parca_kutulari"] = {}
+    for p in ("head", "body", "hand_l", "arm_l", "legL", "footL"):
+        mk = Maske(parca_cokgenleri(b, "body." + p, alt_dahil=(p != "head")))
+        kk = mk.kutu()
+        en = max(mk.satir_gen(kk[1] + (kk[3] - kk[1]) * f / 50) for f in range(1, 50))
+        o["parca_kutulari"][p] = [kk[0] / o["bas_yuk"], kk[1] / o["bas_yuk"], kk[2] / o["bas_yuk"], kk[3] / o["bas_yuk"], en / o["bas_yuk"]]
     # Katmanlar, renkler, çizgiler
     renk = Counter()
     cizgiler = Counter()
@@ -317,6 +325,19 @@ def yaz_md(sonuc, katmanlar, yol):
     bas = [o["bas_yuk"] for o in sonuc]
     L.append("")
     L.append(f"Baş yüksekliği: ortanca {f1d(statistics.median(bas), 1)} piksel ({f1d(min(bas), 1)}–{f1d(max(bas), 1)}).")
+    L.append("")
+    L.append("## Parça kutuları (kendi eksenlerinde, baş = 1)")
+    L.append("")
+    L.append("Her parça dönme noktası (0, 0) olan kendi ekseninde ölçüldü; uzuvlar +y yönünde uzanır. `Üst`:")
+    L.append("parçanın eklemin üstüne taşan kısmı (bindirme payı). `Alt`: eklemden ucuna. `En`: en geniş yeri.")
+    L.append("")
+    L.append("| Parça | Üst | Alt | Sol | Sağ | En |")
+    L.append("| --- | --- | --- | --- | --- | --- |")
+    adlar = {"head": "Baş (saç dahil)", "body": "Gövde", "hand_l": "Üst kol", "arm_l": "Ön kol + el", "legL": "Uyluk", "footL": "Baldır + çizme"}
+    for p, ad in adlar.items():
+        v = [o["parca_kutulari"][p] for o in sonuc]
+        med = [statistics.median(x[i] for x in v) for i in range(5)]
+        L.append(f"| {ad} | {f1d(-med[1])} | {f1d(med[3])} | {f1d(med[0])} | {f1d(med[2])} | {f1d(med[4])} |")
     L.append("")
     L.append("## Silah tutuşu")
     L.append("")

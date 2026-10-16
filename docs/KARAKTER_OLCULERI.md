@@ -27,6 +27,20 @@ yüksekliğine (`baş`: saç dahil, miğfer hariç) bölünmüştür.
 
 Baş yüksekliği: ortanca 28,1 piksel (28,1–30,0).
 
+## Parça kutuları (kendi eksenlerinde, baş = 1)
+
+Her parça dönme noktası (0, 0) olan kendi ekseninde ölçüldü; uzuvlar +y yönünde uzanır. `Üst`:
+parçanın eklemin üstüne taşan kısmı (bindirme payı). `Alt`: eklemden ucuna. `En`: en geniş yeri.
+
+| Parça | Üst | Alt | Sol | Sağ | En |
+| --- | --- | --- | --- | --- | --- |
+| Baş (saç dahil) | 0,71 | 0,29 | -0,55 | 0,33 | 0,85 |
+| Gövde | 1,95 | 1,08 | -0,77 | 0,81 | 1,42 |
+| Üst kol | 0,21 | 1,32 | -0,36 | 0,22 | 0,57 |
+| Ön kol + el | 0,18 | 1,43 | -0,18 | 0,29 | 0,41 |
+| Uyluk | 0,27 | 1,53 | -0,33 | 0,38 | 0,71 |
+| Baldır + çizme | 0,22 | 1,92 | -0,16 | 0,73 | 0,65 |
+
 ## Silah tutuşu
 
 Silahın dönme noktası tutuş yeridir; ön kol + el parçası silahın **üstüne** çizilir ve parmaklar

@@ -14,7 +14,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from kukla import Birlestirici, Swf  # noqa: E402
+from swf_kukla import Birlestirici, Swf  # noqa: E402
 
 ULUS = {"viz": 0, "ger": 1, "rus": 2, "jap": 3, "mon": 4, "ara": 5}
 

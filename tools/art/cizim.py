@@ -57,6 +57,21 @@ def C(ad):
 # --- Yollar ------------------------------------------------------------------------------------
 
 
+DUZ_ESIK = 0.035  # kontrol noktasının kirişe uzaklığı / kiriş boyu; altı düz sayılır
+
+
+def _neredeyse_duz(a, c1, c2, b):
+    dx, dy = b[0] - a[0], b[1] - a[1]
+    uz = math.hypot(dx, dy)
+    if uz < 1e-9:
+        return False
+
+    def uzak(p):
+        return abs((p[0] - a[0]) * dy - (p[1] - a[1]) * dx) / uz
+
+    return max(uzak(c1), uzak(c2)) / uz < DUZ_ESIK
+
+
 def egri(noktalar, sivri=(), kapali=True, gerginlik=1.0):
     """Noktalardan akıcı eğriyle geçen yol.
 
@@ -89,6 +104,10 @@ def egri(noktalar, sivri=(), kapali=True, gerginlik=1.0):
         # Teğeti olmayan uçta kontrol noktası öbür ucun yönünde üçte bire konur: sivri ama eğri.
         c1 = (a[0] + ta[0], a[1] + ta[1]) if ta != (0.0, 0.0) else (a[0] + (b[0] - a[0]) / 3 - tb[0] / 2, a[1] + (b[1] - a[1]) / 3 - tb[1] / 2)
         c2 = (b[0] - tb[0], b[1] - tb[1]) if tb != (0.0, 0.0) else (b[0] - (b[0] - a[0]) / 3 + ta[0] / 2, b[1] - (b[1] - a[1]) / 3 + ta[1] / 2)
+        if _neredeyse_duz(a, c1, c2, b):
+            # Kontrol noktaları kirişe çok yakınsa parça gözle düzdür; düz çizgi yazılır (esindeki gibi)
+            d.append(f"L{f(b[0])} {f(b[1])}")
+            continue
         d.append(f"C{f(c1[0])} {f(c1[1])} {f(c2[0])} {f(c2[1])} {f(b[0])} {f(b[1])}")
     if kapali:
         d.append("Z")
@@ -243,12 +262,14 @@ class Cizim:
         self.govde.append(f'<path d="{d}" fill="none" stroke="{self.renk(ad)}" stroke-width="{f(kalinlik)}" '
                           f'stroke-linecap="round"/>')
 
-    def grup(self, kimlik):
+    def grup(self, kimlik, donusum=None):
+        """Şekil grubu; `donusum` verilirse (a, b, c, d, e, f) SVG matrisi uygulanır."""
         cizim = self
+        ek = "" if donusum is None else ' transform="matrix(' + " ".join(f"{v:.5f}" for v in donusum) + ')"'
 
         class _Grup:
             def __enter__(self):
-                cizim.govde.append(f'<g id="{kimlik}">')
+                cizim.govde.append(f'<g id="{kimlik}"{ek}>')
 
             def __exit__(self, *a):
                 cizim.govde.append("</g>")

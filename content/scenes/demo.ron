@@ -11,9 +11,9 @@
     // Katmanların sol kenarı, kamera sıfırdayken (katmanlar ekrandan geniştir).
     layer_origin: (-320, 0),
     actors: [
-        (art: "art/samples/characters/soldier-1.svg", anchor: (150, 500), position: (250, 930), scale: 0.66),
-        (art: "art/samples/characters/soldier-2.svg", anchor: (150, 500), position: (800, 936), scale: 0.64),
-        (art: "art/samples/characters/hero.svg", anchor: (200, 500), position: (525, 1004), scale: 0.88),
+        (art: "art/samples/characters/soldier-2.svg", anchor: (119, 491), position: (250, 925), scale: 0.62),
+        (art: "art/samples/characters/hero.svg", anchor: (100, 503), position: (560, 1000), scale: 0.62),
+        (art: "art/samples/characters/soldier-1.svg", anchor: (161, 378), position: (800, 935), scale: 0.62),
     ],
     shadow: "art/samples/shadow.svg",
     foreground: (art: "art/samples/landscape/6-on.svg", parallax: 1.3),
