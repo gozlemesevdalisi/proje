@@ -84,6 +84,19 @@ impl Color {
         Color::from_premultiplied([mix(0), mix(1), mix(2), mix(3)])
     }
 
+    /// Rengi ve saydamlığı ayrı ayrı (önceden çarpmadan) karıştırır: Flash ve SVG degradelerinin
+    /// duraklar arasındaki karışımı. Saydam bir durağın rengi de ara tonlara katılır.
+    pub fn lerp_straight(self, other: Color, t: f32) -> Color {
+        let t = t.clamp(0.0, 1.0);
+        let mix = |a: f32, b: f32| a + (b - a) * t;
+        Color::rgba(
+            mix(self.r, other.r),
+            mix(self.g, other.g),
+            mix(self.b, other.b),
+            mix(self.a, other.a),
+        )
+    }
+
     /// Bileşenleri saydamlıkla çarpılmış hâli: `[r·a, g·a, b·a, a]`.
     pub fn premultiplied(self) -> [f32; 4] {
         [self.r * self.a, self.g * self.a, self.b * self.a, self.a]
@@ -147,6 +160,14 @@ mod tests {
         // Önceden çarpılmış karışım rengin tonunu korur; siyaha kaymaz.
         assert!((mid.r - red.r).abs() < 1e-5);
         assert!((mid.g - red.g).abs() < 1e-5);
+    }
+
+    #[test]
+    fn lerp_straight_mixes_colour_of_transparent_end_too() {
+        let clear_grey = Color::rgba(0.4, 0.4, 0.4, 0.0);
+        let mid = clear_grey.lerp_straight(Color::BLACK, 0.5);
+        assert!((mid.r - 0.2).abs() < 1e-6 && (mid.a - 0.5).abs() < 1e-6);
+        assert_eq!(Color::BLACK.lerp_straight(Color::WHITE, 3.0), Color::WHITE);
     }
 
     #[test]

@@ -194,7 +194,8 @@ impl Gradient {
         if s <= 1e-9 { 1.0 } else { len / s }
     }
 
-    /// Duraklar arasında önceden çarpılmış saydamlıkla, sRGB uzayında renk bulur.
+    /// Duraklar arasında, sRGB uzayında renk bulur. Renk ve saydamlık ayrı ayrı karışır (Flash ve
+    /// SVG'deki gibi); önceden çarpma, çizim sırasında renk şeridine yazılırken yapılır.
     pub fn color_at(&self, t: f32) -> Color {
         let Some(first) = self.stops.first() else {
             return Color::TRANSPARENT;
@@ -209,7 +210,9 @@ impl Gradient {
                 if span <= 1e-9 {
                     return stop.color;
                 }
-                return prev.color.lerp(stop.color, (t - prev.offset) / span);
+                return prev
+                    .color
+                    .lerp_straight(stop.color, (t - prev.offset) / span);
             }
             prev = *stop;
         }
@@ -391,6 +394,24 @@ mod tests {
         assert_eq!(g.clone().sample(Vec2::new(-5.0, 0.0)), Color::BLACK);
         let broken = Gradient::linear(Vec2::ONE, Vec2::ONE, bw());
         assert_eq!(broken.sample(Vec2::ZERO), Color::WHITE);
+    }
+
+    #[test]
+    fn stops_mix_colour_and_opacity_separately_like_flash() {
+        // Flash (ve SVG) duraklar arasında rengi ve saydamlığı ayrı ayrı karıştırır; önceden çarpılmış
+        // karışım saydam durağın rengini yok sayıp ara tonları koyulaştırırdı.
+        let clear_grey = Color::rgba(0.4, 0.4, 0.4, 0.0);
+        let g = Gradient::linear(
+            Vec2::ZERO,
+            Vec2::X,
+            vec![
+                GradientStop::new(0.0, clear_grey),
+                GradientStop::new(1.0, Color::BLACK),
+            ],
+        );
+        let mid = g.color_at(0.5);
+        assert!((mid.a - 0.5).abs() < 1e-5, "{mid:?}");
+        assert!((mid.r - 0.2).abs() < 1e-5, "{mid:?}");
     }
 
     #[test]
