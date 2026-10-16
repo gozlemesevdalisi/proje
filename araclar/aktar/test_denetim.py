@@ -68,9 +68,14 @@ class XmlReadingTest(unittest.TestCase):
                'characterId="12" placeFlagHasRatio="true" ratio="65535" placeFlagHasName="true" name="kale" '
                'placeFlagHasClipDepth="true" clipDepth="9" placeFlagHasClipActions="true" '
                'placeFlagHasFilterList="true" placeFlagHasBlendMode="true" blendMode="3">'
-               '<surfaceFilterList><item type="GLOWFILTER"/></surfaceFilterList></item>')
+               '<surfaceFilterList><item type="GLOWFILTER" blurX="4.0" blurY="5.0" compositeSource="true" '
+               'innerGlow="false" knockout="true" passes="1" strength="10.0">'
+               '<glowColor type="RGBA" alpha="255" blue="0" green="10" red="20"/></item></surfaceFilterList></item>')
         self.assertEqual(denetim.xml_place(p), {"depth": 4, "move": True, "char": 12, "ratio": 1.0, "name": "kale",
-                                                "clip": 9, "clip_actions": True, "filters": ["glow"],
+                                                "clip": 9, "clip_actions": True,
+                                                "filters": [{"type": "glow", "blur": [4.0, 5.0], "strength": 10.0,
+                                                             "inner": False, "knockout": True, "composite": True,
+                                                             "passes": 1, "color": [20, 10, 0, 255]}],
                                                 "blend": "multiply"})
         self.assertEqual(denetim.xml_place(el('<item depth="2"/>')), {"depth": 2})
 
@@ -115,6 +120,46 @@ class XmlReadingTest(unittest.TestCase):
         self.assertEqual(dump.scripts["DoAction"], 1)
         self.assertEqual(dump.counts["DefineShape"], 1)
         self.assertEqual(dump.bitmap_fills, {})
+
+    def test_dump_keeps_image_data_although_elements_are_cleared(self):
+        # Döküm akış hâlinde okunur ve her öğe okunduktan sonra silinir: resim verisi o anda alınmalı
+        # (önceden öğenin kendisi saklanıyordu; veri boş kalıyor, boyut denetimi sessizce atlanıyordu)
+        xml = ('<swf><tags><item type="JPEGTablesTag" jpegData="ffd8ffd9"/>'
+               '<item type="DefineBitsTag" characterID="7" jpegData="ffd8aabbffd9"/></tags></swf>')
+        with tempfile.TemporaryDirectory() as td:
+            path = os.path.join(td, "swf.xml")
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(xml)
+            dump = denetim.XmlDump(path)
+        self.assertEqual(denetim.image_bytes(dump.images[7], dump.jpeg_tables), b"\xff\xd8\xaa\xbb\xff\xd9")
+
+    def test_code_places_from_files_and_from_xml_agree(self):
+        # FFDec klasör adına sprite'ın ve yerleştirilen karakterin adını ekler; yer anahtarı adsızdır
+        self.assertEqual(denetim.code_key("DefineSprite_547_Human/frame_3/DoAction_2.as"), "DefineSprite_547/frame_3/DoAction")
+        self.assertEqual(denetim.code_key("frame_5/PlaceObject2_43_BlackSquare_41/CLIPACTIONRECORD onClipEvent(load).as"),
+                         "frame_5/PlaceObject2_43_41/CLIPACTIONRECORD")
+        self.assertEqual(denetim.code_key("DefineButton2_61/BUTTONCONDACTION on(release).as"),
+                         "DefineButton2_61/BUTTONCONDACTION")
+        self.assertEqual(denetim.code_key("__Packages/WorldMap.as"), "__Packages/WorldMap.as")
+        xml = ('<swf><tags><item type="DoActionTag"/><item type="DoActionTag"/>'
+               '<item type="PlaceObject2Tag" depth="41" characterId="43" placeFlagHasCharacter="true" '
+               'placeFlagHasClipActions="true"><clipActions><clipActionRecords>'
+               '<item type="CLIPACTIONRECORD"/></clipActionRecords></clipActions></item>'
+               '<item type="ShowFrameTag"/><item type="DefineSpriteTag" spriteId="547"><subTags>'
+               '<item type="ShowFrameTag"/><item type="DoActionTag"/><item type="ShowFrameTag"/></subTags></item>'
+               '<item type="DoInitActionTag" spriteId="547"/><item type="DoInitActionTag" spriteId="9"/>'
+               '<item type="ExportAssetsTag"><tags><item>547</item><item>9</item></tags>'
+               '<names><item>Human</item><item>__Packages.a.B</item></names></item></tags></swf>')
+        with tempfile.TemporaryDirectory() as td:
+            path = os.path.join(td, "swf.xml")
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(xml)
+            dump = denetim.XmlDump(path)
+        self.assertEqual(dump.code_keys, {"frame_1/DoAction": 2, "frame_1/PlaceObject2_43_41/CLIPACTIONRECORD": 1,
+                                          "DefineSprite_547/frame_2/DoAction": 1, "Human.as": 1, "__Packages/a/B.as": 1})
+
+    def test_as_literals_unescape_ffdec_strings(self):
+        self.assertEqual(denetim.as_literals('a = "Öldün\\n\\"x\\"";\nb("y");'), ['Öldün\n"x"', "y"])
 
     def test_text_records_read_style_and_glyphs(self):
         t = el('<item><textRecords><item styleFlagsHasFont="true" fontId="3" textHeight="240" '
@@ -234,9 +279,17 @@ class ComparisonTest(unittest.TestCase):
         self.assertTrue(denetim.close("a", "a"))
         self.assertFalse(denetim.close(True, 1.0))
 
-    def test_normalize_ours_reduces_filters_to_types(self):
-        self.assertEqual(denetim.normalize_ours({"depth": 1, "filters": [{"type": "blur", "x": 4}, "glow"]}),
-                         {"depth": 1, "filters": ["blur", "glow"]})
+    def test_filters_are_compared_field_by_field(self):
+        # Önceden yalnız türüne bakılıyordu: gücü ya da geçiş sayısı farklı süzgeç fark edilmiyordu
+        glow = {"type": "glow", "blur": [4.0, 4.0], "strength": 10.0, "inner": False, "knockout": False,
+                "composite": True, "passes": 1, "color": [0, 0, 0, 255]}
+        self.assertIsNone(denetim.same_op({"depth": 1, "filters": [glow]}, {"depth": 1, "filters": [dict(glow)]}))
+        for key, value in (("strength", 2.0), ("passes", 3), ("color", [0, 0, 0, 128]), ("knockout", True)):
+            other = dict(glow, **{key: value})
+            self.assertIsNotNone(denetim.same_op({"depth": 1, "filters": [glow]}, {"depth": 1, "filters": [other]}), key)
+        # XML'de alanları okunmayan tür yalnız türüyle karşılaştırılır
+        self.assertIsNone(denetim.same_op({"depth": 1, "filters": [{"type": "convolution", "size": [3, 3]}]},
+                                          {"depth": 1, "filters": [{"type": "convolution", "unchecked": True}]}))
 
     def test_same_op_treats_missing_matrix_as_identity_only_when_other_side_has_it(self):
         identity = [1.0, 0.0, 0.0, 1.0, 0.0, 0.0]
@@ -272,15 +325,46 @@ class ComparisonTest(unittest.TestCase):
 
 
 class PixelTest(unittest.TestCase):
-    def test_pixel_difference_places_images_on_white_without_resizing(self):
-        black = Image.new("RGBA", (2, 2), (0, 0, 0, 255))
-        self.assertEqual(denetim.pixel_difference(black, black), 0)
-        white = Image.new("RGBA", (2, 2), (255, 255, 255, 255))
-        self.assertEqual(denetim.pixel_difference(black, white), 100)
-        # Yan yana konunca 4×2'lik tuvalin yarısı farklı
-        self.assertEqual(denetim.pixel_difference(black, black, (0, 0), (2, 0)), 100)
-        clear = Image.new("RGBA", (2, 2), (0, 0, 0, 0))
-        self.assertEqual(denetim.pixel_difference(clear, white), 0)
+    def test_ink_difference_finds_local_errors_that_the_canvas_average_hides(self):
+        # Büyük bir şekilde 6×6 piksellik yerel bir hata: tuval ortalaması %2 sınırının çok altında kalır,
+        # yerel ölçüt hatayı "katı" bölge olarak bulur
+        a = Image.new("RGBA", (200, 200), (255, 255, 255, 0))
+        for x in range(20, 180):
+            for y in range(20, 180):
+                a.putpixel((x, y), (200, 30, 30, 255))
+        b = a.copy()
+        for x in range(100, 106):
+            for y in range(100, 106):
+                b.putpixel((x, y), (30, 30, 200, 255))
+        # (Tuvalin ortalama renk farkı burada %0,1'in altında kalır; eski ölçüt bu hatayı geçirirdi.)
+        ratio, solid = denetim.ink_difference(a, b)
+        self.assertGreater(solid, 0)
+        self.assertEqual(denetim.ink_difference(a, a), (0.0, 0))
+
+    def test_ink_difference_forgives_one_pixel_edge_shifts(self):
+        # Kenar yumuşatma farkı: aynı şekil yarım piksel kaymış gibi kenarda ara tonlu
+        a = Image.new("RGBA", (60, 60), (255, 255, 255, 0))
+        b = a.copy()
+        for x in range(10, 50):
+            for y in range(10, 50):
+                a.putpixel((x, y), (0, 0, 0, 255))
+                b.putpixel((x + 1, y), (0, 0, 0, 255) if x + 1 < 50 else (0, 0, 0, 128))
+        ratio, solid = denetim.ink_difference(a, b)
+        # Yalnız yarım saydam kenar sütunu (40 piksel) farklı sayılır; katı bölge yok
+        self.assertEqual(solid, 0)
+        self.assertLess(ratio, 3.0)
+
+    def test_ink_difference_finds_a_reversed_gradient(self):
+        # B2: degradenin yönü ters (içte koyu yerine içte açık)
+        a = Image.new("RGBA", (80, 20))
+        b = Image.new("RGBA", (80, 20))
+        for x in range(80):
+            for y in range(20):
+                a.putpixel((x, y), (255, 204, 0, int(255 * x / 79)))
+                b.putpixel((x, y), (255, 204, 0, int(255 * (79 - x) / 79)))
+        ratio, solid = denetim.ink_difference(a, b)
+        self.assertGreater(ratio, 50)
+        self.assertGreater(solid, 100)
 
     def test_ink_centre_weights_dark_opaque_pixels(self):
         im = Image.new("RGBA", (6, 4), (255, 255, 255, 0))
@@ -302,17 +386,17 @@ class PixelTest(unittest.TestCase):
     def test_compare_rendered_reports_missing_and_different_drawings(self):
         with tempfile.TemporaryDirectory() as td:
             black, grey = os.path.join(td, "a.png"), os.path.join(td, "b.png")
-            Image.new("RGBA", (4, 4), (0, 0, 0, 255)).save(black)
-            Image.new("RGBA", (4, 4), (40, 40, 40, 255)).save(grey)
+            Image.new("RGBA", (8, 8), (0, 0, 0, 255)).save(black)
+            Image.new("RGBA", (8, 8), (80, 80, 80, 255)).save(grey)
             pairs = [("aynı", black, (0, 0), black, (0, 0)), ("farklı", black, (0, 0), grey, (0, 0)),
                      ("yok", os.path.join(td, "yok.png"), (0, 0), black, (0, 0)),
                      ("ffdec yok", black, (0, 0), os.path.join(td, "yok.png"), (0, 0))]
             probs, worst = denetim.compare_rendered(pairs)
         self.assertEqual(len(probs), 3, probs)
-        self.assertTrue(probs[0].startswith("farklı: piksel farkı"))
+        self.assertTrue(probs[0].startswith("farklı: iç piksellerin %100.00'i"), probs[0])
         self.assertIn("motor çizemedi", probs[1])
         self.assertIn("FFDec'in çizimi yok", probs[2])
-        self.assertAlmostEqual(worst, 100 * 40 / 255, places=3)
+        self.assertEqual(worst, (100.0, 64))
 
     def test_hairline_svg_draws_thin_strokes_at_least_one_pixel_wide(self):
         svg = ('<path d="M0 0" data-hairline="true" data-original-stroke-width="0.25" stroke-width="1.0"/>'
@@ -350,13 +434,11 @@ class PixelTest(unittest.TestCase):
         self.assertEqual(probs, ["t şekil 2: ince çizgi bizim 0 / listede 0 / FFDec 1"])
         self.assertEqual(len(more), 2)
 
-    def test_file_hash_and_tree_files_read_bytes(self):
+    def test_file_hash_reads_bytes(self):
         with tempfile.TemporaryDirectory() as td:
-            os.makedirs(os.path.join(td, "a"))
-            with open(os.path.join(td, "a", "b.as"), "wb") as f:
+            with open(os.path.join(td, "b.as"), "wb") as f:
                 f.write(b"stop();")
-            self.assertEqual(denetim.tree_files(td), {"a/b.as": b"stop();"})
-            self.assertEqual(denetim.file_hash(os.path.join(td, "a", "b.as")), hashlib.sha256(b"stop();").hexdigest())
+            self.assertEqual(denetim.file_hash(os.path.join(td, "b.as")), hashlib.sha256(b"stop();").hexdigest())
 
     def test_translation_problems_compare_with_source_dump_and_tool(self):
         old_root = denetim.ROOT
@@ -400,17 +482,36 @@ class PixelTest(unittest.TestCase):
                 dump.texts[160] = [{}]
                 with open(os.path.join(content, "fonts", "LiberationSans-Bold.ttf"), "wb") as f:
                     f.write(b"baska")
-                with open(os.path.join(denetim.ROOT, "kaynak", "feudalism", "f1", "kod-tr", "x.as"), "w") as f:
-                    f.write("x")
                 broken = denetim.translation_problems("f1", lib, texts, dump, root, archive)
             finally:
                 denetim.ROOT = old_root
-        self.assertEqual(clean, ([], [], [], []))
-        self.assertEqual([len(p) for p in broken], [1, 1, 1, 1], broken)
+        self.assertEqual(clean, ([], [], []))
+        self.assertEqual([len(p) for p in broken], [1, 1, 1], broken)
         self.assertIn("kutular.json", broken[0][0])
         self.assertIn("sabit yazı 160", broken[1][0])
-        self.assertIn("x.as", broken[2][0])
-        self.assertIn("kaynağıyla aynı değil", broken[3][0])
+        self.assertIn("kaynağıyla aynı değil", broken[2][0])
+
+    def test_code_translation_is_checked_against_the_turkish_swf_strings(self):
+        old_root = denetim.ROOT
+        with tempfile.TemporaryDirectory() as td:
+            denetim.ROOT = td
+            try:
+                base = os.path.join(td, "kaynak", "feudalism", "f1")
+                for sub, text in (("kod", 'say("You died...", "x");'), ("kod-tr", 'say("Öldün...", "x");')):
+                    os.makedirs(os.path.join(base, sub, "frame_1"))
+                    with open(os.path.join(base, sub, "frame_1", "DoAction.as"), "w", encoding="utf-8") as f:
+                        f.write(text)
+                good = denetim.code_translation_problems("f1", td, {"Öldün...", "x"})
+                bad = denetim.code_translation_problems("f1", td, {"Oldun...", "x"})
+                with open(os.path.join(base, "kod-tr", "extra.as"), "w", encoding="utf-8") as f:
+                    f.write("")
+                orphan = denetim.code_translation_problems("f1", td, {"Öldün...", "x"})
+            finally:
+                denetim.ROOT = old_root
+        self.assertEqual(good, (1, []))
+        self.assertEqual(bad[0], 1)
+        self.assertIn("Türkçe SWF'de yok", bad[1][0])
+        self.assertIn("orijinali kod/ altında yok", orphan[1][0])
 
     def test_morph_bounds_problems_compare_canvas_with_union_of_both_ends(self):
         dump = types.SimpleNamespace(morph_bounds={6: {"start": [-1.0, -2.0, 1.0, 0.0], "end": [0.0, 0.0, 2.0, 3.0]}})

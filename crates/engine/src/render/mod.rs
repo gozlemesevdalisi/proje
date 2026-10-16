@@ -39,6 +39,11 @@ pub enum RenderError {
     NoAdapter(String),
     Device(String),
     Readback(String),
+    /// İstenen resim grafik kartının doku sınırından büyük.
+    TooLarge {
+        size: UVec2,
+        limit: u32,
+    },
 }
 
 impl fmt::Display for RenderError {
@@ -47,6 +52,11 @@ impl fmt::Display for RenderError {
             RenderError::NoAdapter(e) => write!(f, "uygun grafik kartı bulunamadı: {e}"),
             RenderError::Device(e) => write!(f, "grafik kartı açılamadı: {e}"),
             RenderError::Readback(e) => write!(f, "çizilen resim okunamadı: {e}"),
+            RenderError::TooLarge { size, limit } => write!(
+                f,
+                "resim çok büyük: {}×{} (grafik kartının sınırı {limit})",
+                size.x, size.y
+            ),
         }
     }
 }
@@ -849,6 +859,10 @@ impl Renderer {
         list: &DrawList,
     ) -> Result<RgbaImage, RenderError> {
         let size = viewport.physical;
+        let limit = self.device.limits().max_texture_dimension_2d;
+        if size.x > limit || size.y > limit {
+            return Err(RenderError::TooLarge { size, limit });
+        }
         let texture = self.device.create_texture(&wgpu::TextureDescriptor {
             label: Some("ekransız hedef"),
             size: wgpu::Extent3d {

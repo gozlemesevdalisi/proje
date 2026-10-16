@@ -475,3 +475,12 @@ fn image_paint_repeats_or_clamps_with_nearest_pixels() {
     assert_eq!(img.pixel(95, 85), [255, 255, 255, 255], "kenar uzar");
     assert_eq!(img.pixel(55, 85), [0, 0, 255, 255], "kenar uzar");
 }
+
+#[test]
+fn too_large_image_is_an_error_not_a_crash() {
+    // Grafik kartının doku sınırını aşan resim istenirse çizici çökmemeli, hata döndürmeli
+    let mut r = renderer();
+    let list = DrawList::new(hex("#FFFFFF"));
+    let viewport = Viewport::fit(Vec2::new(10000.0, 10.0), UVec2::new(10000, 10));
+    assert!(r.render_to_image(&viewport, &list).is_err());
+}

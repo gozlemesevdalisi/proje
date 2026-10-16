@@ -8,9 +8,11 @@ Denetlenen:
   3. bütün zaman çizelgeleri: kare kare her yerleştirme (karakter, derinlik, matris, renk dönüşümü,
      oran, ad, kırpma derinliği, klip eylemi, süzgeç, karışım), kaldırma, kare etiketi, ses başlatma;
   4. düğmeler, dışa aktarılan adlar, sabit yazılar (glif glif), yazı alanları;
-  5. sesler (dosya baytları SWF'deki veriyle aynı mı), resimler (açılıyor mu, boyutu doğru mu);
-  6. şekiller: motorun çizdiği ile FFDec'in çizdiği piksel piksel; morph başlangıç ve bitişleri;
-  7. kod parçalarının sayısı.
+  5. sesler (dosya baytları SWF'deki veriyle aynı mı), resimler (SWF'deki veriden çözülenle piksel piksel);
+  6. şekiller (resim dolgulular dahil): motorun çizdiği ile FFDec'in çizdiği, yerel ölçütle; morph
+     başlangıç ve bitişleri; morph uçlarının stilleri sayısal;
+  7. kod parçaları yer yer; kod çevirisi sahibinin Türkçe SWF'sinin bayt koduyla;
+  8. tanımsız karakter başvurusu; sponsor ve üçüncü taraf izi (çizimlerin içerik özetiyle).
 
 Kullanım (depo kökünden; önce cikar.sh ve aktar.py):
     python3 araclar/aktar/denetim.py [--gorsel]     → docs/AYIKLAMA_DENETIMI.md
@@ -64,6 +66,42 @@ FILTER_TYPES = {"DROPSHADOWFILTER": "drop_shadow", "BLURFILTER": "blur", "GLOWFI
                 "COLORMATRIXFILTER": "color_matrix", "GRADIENTBEVELFILTER": "gradient_bevel"}
 
 
+def xml_rgba(el):
+    return [int(el.get(k, "0")) for k in ("red", "green", "blue", "alpha")]
+
+
+# XML süzgeç türü → (bizim tür, {XML özniteliği: bizim alan}, {XML alt öğesi (renk): bizim alan})
+FILTER_FIELDS = {
+    "DROPSHADOWFILTER": ("drop_shadow", {"angle": "angle", "distance": "distance", "strength": "strength",
+                                         "innerShadow": "inner", "knockout": "knockout",
+                                         "compositeSource": "composite", "passes": "passes"},
+                         {"dropShadowColor": "color"}),
+    "BLURFILTER": ("blur", {"passes": "passes"}, {}),
+    "GLOWFILTER": ("glow", {"strength": "strength", "innerGlow": "inner", "knockout": "knockout",
+                            "compositeSource": "composite", "passes": "passes"}, {"glowColor": "color"}),
+    "BEVELFILTER": ("bevel", {"angle": "angle", "distance": "distance", "strength": "strength",
+                              "innerShadow": "inner", "knockout": "knockout", "compositeSource": "composite",
+                              "onTop": "on_top", "passes": "passes"},
+                    {"shadowColor": "shadow", "highlightColor": "highlight"}),
+}
+
+
+def xml_filter(f):
+    """XML süzgeci → library.json'daki biçim. Bu dosyalarda bulunmayan türler (degrade ışıma ve kabartma,
+    evrişim, renk matrisi) yalnız türüyle karşılaştırılır ve "unchecked" işaretlenir."""
+    t = f.get("type")
+    if t not in FILTER_FIELDS:
+        return {"type": FILTER_TYPES.get(t, t), "unchecked": True}
+    kind, attrs, colours = FILTER_FIELDS[t]
+    out = {"type": kind, "blur": [float(f.get("blurX")), float(f.get("blurY"))]}
+    for attr, key in attrs.items():
+        v = f.get(attr)
+        out[key] = (v == "true") if v in ("true", "false") else (int(v) if key == "passes" else float(v))
+    for child, key in colours.items():
+        out[key] = xml_rgba(f.find(child))
+    return out
+
+
 def xml_place(el):
     op = {"depth": int(el.get("depth"))}
     if el.get("placeFlagMove") == "true":
@@ -83,7 +121,7 @@ def xml_place(el):
     if el.get("placeFlagHasClipActions") == "true":
         op["clip_actions"] = True
     if el.get("placeFlagHasFilterList") == "true":
-        op["filters"] = [FILTER_TYPES.get(f.get("type"), f.get("type")) for f in el.find("surfaceFilterList")]
+        op["filters"] = [xml_filter(f) for f in el.find("surfaceFilterList")]
     if el.get("placeFlagHasBlendMode") == "true":
         op["blend"] = swf.BLEND_MODES.get(int(el.get("blendMode")), "normal")
     return op
@@ -155,6 +193,11 @@ class XmlDump:
         self.images = {}
         self.jpeg_tables = b""
         self.morph_bounds = {}
+        self.morph_styles = {}
+        self.text_meta = {}  # sabit yazı → {bounds, matrix}
+        self.edit_text_full = {}
+        self.code_keys = {}  # kod parçasının yeri (FFDec betik dökümündeki gibi) → sayı
+        self.init_actions = []  # DoInitAction'ların sprite kimlikleri (dışa aktarılan adları sonra çözülür)
         self.bitmap_fills = {}  # şekil → [(resim kimliği, desen matrisi piksel biriminde)]
         self.scripts = {"DoAction": 0, "DoInitAction": 0, "BUTTONCONDACTION": 0, "CLIPACTIONRECORD": 0}
         self.root_counts = {}
@@ -170,12 +213,28 @@ class XmlDump:
             el.clear()
         self.root.finish()
         self.counts = self.root_counts
+        names = {}
+        for n, c in self.exports.items():
+            names.setdefault(c, n)
+        unnamed = 0
+        for sid in self.init_actions:
+            name = names.get(sid)
+            if name is None:
+                # FFDec dışa aktarılmamış sprite'ın sınıf kodunu kimliksiz, sırayla adlandırır
+                unnamed += 1
+                key = "DoInitAction.as" if unnamed == 1 else f"DoInitAction_{unnamed}.as"
+            elif name.startswith("__Packages."):
+                key = "__Packages/" + name[len("__Packages."):].replace(".", "/") + ".as"
+            else:
+                key = name + ".as"
+            self.code_keys[key] = self.code_keys.get(key, 0) + 1
 
     def top_level(self, el):
         t = el.get("type", "")
         kind = XML_NAME.get(t[:-3], t[:-3]) if t.endswith("Tag") else t
         self.root_counts[kind] = self.root_counts.get(kind, 0) + 1
         self.count_scripts(el)
+        self.code_places(el, kind, f"frame_{len(self.root.frames)}/")
         cid = None
         for key in ("shapeId", "spriteId", "buttonId", "characterID", "characterId", "soundId", "fontId",
                     "fontID"):
@@ -189,17 +248,20 @@ class XmlDump:
                 self.bitmap_fills[cid] = fills
         elif kind.startswith("DefineMorphShape"):
             self.chars[cid] = "morph"
+            self.morph_styles[cid] = xml_morph_styles(el)
             self.morph_bounds[cid] = {end: [int(el.find(f"{end}Bounds").get(k)) / 20
                                             for k in ("Xmin", "Ymin", "Xmax", "Ymax")] for end in ("start", "end")}
         elif kind.startswith("DefineBits") and kind != "DefineBitsTag":
             self.chars[cid] = "bitmap"
-            self.images[cid] = el
+            self.images[cid] = (kind, bytes.fromhex(el.get("jpegData") or el.get("imageData") or ""))
         elif kind in ("DefineText", "DefineText2"):
             self.chars[cid] = "text"
             self.texts[cid] = text_records(el)
+            self.text_meta[cid] = {"bounds": xml_rect(el.find("textBounds")), "matrix": xml_matrix(el.find("textMatrix"))}
         elif kind == "DefineEditText":
             self.chars[cid] = "edit_text"
             self.edit_texts[cid] = dict(el.attrib)
+            self.edit_text_full[cid] = xml_edit_text(el)
         elif kind.startswith("DefineFont") and kind not in ("DefineFontAlignZones", "DefineFontInfo",
                                                            "DefineFontInfo2", "DefineFontName"):
             self.chars[cid] = "font"
@@ -214,6 +276,8 @@ class XmlDump:
             self.chars[cid] = "sprite"
             t = XmlTimeline()
             for sub in el.find("subTags"):
+                sk = sub.get("type", "")
+                self.code_places(sub, sk[:-3] if sk.endswith("Tag") else sk, f"DefineSprite_{cid}/frame_{len(t.frames)}/")
                 t.add(sub)
                 k = sub.get("type", "")
                 k = XML_NAME.get(k[:-3], k[:-3]) if k.endswith("Tag") else k
@@ -228,8 +292,26 @@ class XmlDump:
             self.jpeg_tables = bytes.fromhex(el.get("jpegData", ""))
         if kind == "DefineBits":
             self.chars[cid] = "bitmap"
-            self.images[cid] = el
+            self.images[cid] = (kind, bytes.fromhex(el.get("jpegData") or el.get("imageData") or ""))
         self.root.add(el)
+
+    def code_places(self, el, kind, frame_prefix):
+        """Kod parçalarının yerleri, FFDec'in betik dökümündeki klasör düzeniyle: kare kodu
+        (<kare>/DoAction), klip eylemi (<kare>/<yerleştirme>_<karakter>_<derinlik>/CLIPACTIONRECORD),
+        düğme (DefineButton2_<kimlik>/BUTTONCONDACTION), sınıf kodu (dışa aktarılan adıyla, sonra çözülür)."""
+        def add(key, n=1):
+            if n:
+                self.code_keys[key] = self.code_keys.get(key, 0) + n
+        if kind == "DoAction":
+            add(frame_prefix + "DoAction")
+        elif kind == "DoInitAction":
+            self.init_actions.append(int(el.get("spriteId")))
+        elif kind in ("PlaceObject2", "PlaceObject3") and el.get("placeFlagHasClipActions") == "true":
+            n = sum(1 for x in el.iter("item") if x.get("type") == "CLIPACTIONRECORD")
+            add(f"{frame_prefix}{kind}_{el.get('characterId')}_{el.get('depth')}/CLIPACTIONRECORD", n)
+        elif kind == "DefineButton2":
+            add(f"DefineButton2_{el.get('buttonId')}/BUTTONCONDACTION",
+                sum(1 for x in el.iter("item") if x.get("type") == "BUTTONCONDACTION"))
 
     def count_scripts(self, el):
         for sub in el.iter("item"):
@@ -281,6 +363,81 @@ def bitmap_fills(el):
     return out
 
 
+def xml_rect(el):
+    return [int(el.get(k)) / 20 for k in ("Xmin", "Ymin", "Xmax", "Ymax")]
+
+
+ALIGN = ["left", "right", "center", "justify"]
+EDIT_FLAGS = (("word_wrap", "wordWrap"), ("multiline", "multiline"), ("password", "password"),
+              ("read_only", "readOnly"), ("auto_size", "autoSize"), ("no_select", "noSelect"), ("border", "border"),
+              ("was_static", "wasStatic"), ("html", "html"), ("use_outlines", "useOutlines"))
+
+
+def xml_edit_text(el):
+    """XML yazı alanı → texts.json'daki biçim (bütün alanlar; bkz. swf.read_edit_text_full)."""
+    a = el.attrib
+    out = {"id": int(a["characterID"]), "bounds": xml_rect(el.find("bounds")),
+           "flags": [k for k, x in EDIT_FLAGS if a.get(x) == "true"]}
+    if a.get("hasFont") == "true":
+        out["font"] = int(a["fontId"])
+    if a.get("hasFontClass") == "true":
+        out["font_class"] = xml_unescape(a.get("fontClass", ""))
+    if a.get("hasFont") == "true" or a.get("hasFontClass") == "true":
+        out["font_height"] = int(a["fontHeight"]) / 20
+    if a.get("hasTextColor") == "true":
+        c = xml_rgba(el.find("textColor"))
+        out["color"] = "#%02X%02X%02X" % tuple(c[:3])
+        out["alpha"] = round(c[3] / 255, 4)
+    if a.get("hasMaxLength") == "true":
+        out["max_length"] = int(a["maxLength"])
+    if a.get("hasLayout") == "true":
+        align = int(a["align"])
+        out["layout"] = {"align": ALIGN[align] if align < 4 else str(align), "left_margin": int(a["leftMargin"]) / 20,
+                         "right_margin": int(a["rightMargin"]) / 20, "indent": int(a["indent"]) / 20,
+                         "leading": int(a["leading"]) / 20}
+    out["variable"] = xml_unescape(a.get("variableName", ""))
+    if a.get("hasText") == "true":
+        out["text"] = xml_unescape(a.get("initialText", ""))
+    return out
+
+
+def xml_morph_fill(f):
+    """XML MORPHFILLSTYLE → swf.read_morph_styles'daki biçim."""
+    t = int(f.get("fillStyleType"))
+    if t == 0:
+        return {"type": "solid", "start": xml_rgba(f.find("startColor")), "end": xml_rgba(f.find("endColor"))}
+    if t in (0x10, 0x12, 0x13):
+        recs = list(f.find("gradient").find("gradientRecords"))
+        out = {"type": {0x10: "linear", 0x12: "radial", 0x13: "focal"}[t]}
+        for end in ("start", "end"):
+            out[end] = {"matrix": xml_matrix(f.find(f"{end}GradientMatrix")),
+                        "stops": [[int(r.get(f"{end}Ratio")), xml_rgba(r.find(f"{end}Color"))] for r in recs]}
+        return out
+    return {"type": "bitmap", "bitmap": int(f.get("bitmapId")),
+            "start": {"matrix": xml_matrix(f.find("startBitmapMatrix"))},
+            "end": {"matrix": xml_matrix(f.find("endBitmapMatrix"))}}
+
+
+def xml_morph_styles(el):
+    """XML morph şeklinin dolgu ve çizgi stilleri (iki uçta)."""
+    fills_el = el.find("morphFillStyles")
+    lines_el = el.find("morphLineStyles")
+    fills = [xml_morph_fill(f) for f in fills_el.find("fillStyles")] if fills_el is not None else []
+    lines = []
+    items = []
+    if lines_el is not None:
+        for tag in ("lineStyles", "lineStyles2"):
+            if lines_el.find(tag) is not None:
+                items = list(lines_el.find(tag))
+    for item in items:
+        line = {"start": {"width": int(item.get("startWidth")) / 20}, "end": {"width": int(item.get("endWidth")) / 20}}
+        if item.find("startColor") is not None:
+            line["start"]["color"] = xml_rgba(item.find("startColor"))
+            line["end"]["color"] = xml_rgba(item.find("endColor"))
+        lines.append(line)
+    return {"fills": fills, "lines": lines}
+
+
 def text_records(el):
     out = []
     for r in el.find("textRecords"):
@@ -291,6 +448,8 @@ def text_records(el):
         if r.get("styleFlagsHasColor") == "true":
             c = r.find("textColor")
             rec["color"] = "#%02X%02X%02X" % (int(c.get("red")), int(c.get("green")), int(c.get("blue")))
+            if c.get("type") == "RGBA":
+                rec["alpha"] = round(int(c.get("alpha")) / 255, 4)
         if r.get("styleFlagsHasXOffset") == "true":
             rec["x"] = int(r.get("xOffset")) / 20
         if r.get("styleFlagsHasYOffset") == "true":
@@ -358,6 +517,8 @@ def close(a, b):
     değeri bir sayıya eşit sayılmaz)."""
     if isinstance(a, list) and isinstance(b, list):
         return len(a) == len(b) and all(close(x, y) for x, y in zip(a, b))
+    if isinstance(a, dict) and isinstance(b, dict):
+        return set(a) == set(b) and all(close(a[k], b[k]) for k in a)
     if isinstance(a, bool) or isinstance(b, bool):
         return type(a) is type(b) and a == b
     if isinstance(a, (int, float)) and isinstance(b, (int, float)):
@@ -368,10 +529,20 @@ def close(a, b):
 def normalize_ours(op):
     """library.json işlemi → XML'deki biçim (atılmış birim matris ve renk dönüşümü geri eklenmez:
     XML'de bayrak varsa ve değer birimse eşit sayılır)."""
-    out = dict(op)
-    if "filters" in out:
-        out["filters"] = [f["type"] if isinstance(f, dict) else f for f in out["filters"]]
-    return out
+    return dict(op)
+
+
+def same_filters(ours, theirs):
+    """Süzgeç listeleri alan alan; XML'de karşılaştırılamayan türler yalnız türüyle."""
+    if len(ours) != len(theirs):
+        return False
+    for a, b in zip(ours, theirs):
+        if b.get("unchecked"):
+            if a.get("type") != b["type"]:
+                return False
+        elif not close(a, b):
+            return False
+    return True
 
 
 IDENTITY = {"matrix": [1.0, 0.0, 0.0, 1.0, 0.0, 0.0], "cxform": [[1.0] * 4, [0.0] * 4]}
@@ -381,7 +552,10 @@ def same_op(ours, theirs):
     ours = normalize_ours(ours)
     keys = set(ours) | set(theirs)
     for k in keys:
-        if k in IDENTITY:
+        if k == "filters":
+            if not same_filters(ours.get(k, []), theirs.get(k, [])):
+                return f"süzgeç: bizim {ours.get(k)} / FFDec {theirs.get(k)}"
+        elif k in IDENTITY:
             a = ours.get(k, IDENTITY[k] if k in theirs else None)
             b = theirs.get(k, IDENTITY[k] if k in ours else None)
             if not close(a, b):
@@ -427,6 +601,7 @@ def check_game(game, visual):
     dump = XmlDump(os.path.join(archive, "swf.xml"))
     rows = []
     problems = []
+    infos = []
 
     def row(name, count, probs):
         rows.append((name, count, len(probs)))
@@ -478,19 +653,22 @@ def check_game(game, visual):
     expected = {n: c for n, c in dump.exports.items() if not aktar.is_component_export(n) and c not in excluded}
     probs = [f"dışa aktarılan {n}: bizim {lib['exports'].get(n)} / FFDec {expected.get(n)}"
              for n in sorted(set(expected) | set(lib["exports"])) if lib["exports"].get(n) != expected.get(n)]
-    row("Dışa aktarılan adlar", len(dump.exports), probs)
+    row("Dışa aktarılan adlar (bileşen, sınıf ve dışarıda bırakılanlar hariç)", len(expected), probs)
     # Sabit yazılar
     probs = []
     for tid, t in texts["texts"].items():
         theirs = dump.texts[int(tid)]
-        ours = [{k: v for k, v in r.items() if k != "alpha"} for r in t["records"]]
-        if len(ours) != len(theirs):
+        meta = dump.text_meta[int(tid)]
+        for k in ("bounds", "matrix"):
+            if not close(t[k], meta[k]):
+                probs.append(f"yazı {tid}: {k} bizim {t[k]} / FFDec {meta[k]}")
+        if len(t["records"]) != len(theirs):
             probs.append(f"yazı {tid}: kayıt sayısı farklı")
             continue
-        for a, b in zip(ours, theirs):
-            if not close(a.get("glyphs"), b.get("glyphs")) or any(not close(a.get(k), b.get(k))
-                                                                     for k in ("font", "height", "color", "x", "y")):
-                probs.append(f"yazı {tid}: kayıt farklı")
+        for i, (a, b) in enumerate(zip(t["records"], theirs)):
+            for k in ("glyphs", "font", "height", "color", "alpha", "x", "y"):
+                if not close(a.get(k), b.get(k)):
+                    probs.append(f"yazı {tid} kayıt {i + 1}: {k} bizim {a.get(k)} / FFDec {b.get(k)}")
     probs += [f"yazı {t}: texts.json'da yok" for t in dump.texts if str(t) not in texts["texts"]
               and man["characters"][str(t)]["where"] != "yalnız yerel arşiv"
               and not man["characters"][str(t)]["where"].startswith("yalnız yerel")]
@@ -502,19 +680,17 @@ def check_game(game, visual):
                 plain = ffdec_plain_text(f.read())
             if "".join(plain.split()) != "".join(t["text"].split()):
                 probs.append(f"yazı {tid}: çözülen yazı FFDec'inkinden farklı: {t['text']!r} / {plain!r}")
-    row("Sabit yazılar (glif glif ve çözülmüş yazı)", sum(len(t["records"]) for t in texts["texts"].values()), probs)
+    row("Sabit yazılar (sınır, matris; her kaydın yazı tipi, boyu, rengi, saydamlığı, yeri, glifleri; çözülmüş yazı)",
+        sum(len(t["records"]) for t in texts["texts"].values()), probs)
     # Yazı alanları
     probs = []
     for eid, e in texts["edit_texts"].items():
-        x = dump.edit_texts[int(eid)]
-        if e.get("variable", "") != xml_unescape(x.get("variableName", "")):
-            probs.append(f"yazı alanı {eid}: değişken adı farklı")
-        if x.get("hasText") == "true" and e.get("text", "") != xml_unescape(x.get("initialText", "")):
-            probs.append(f"yazı alanı {eid}: başlangıç yazısı farklı")
-        if x.get("hasFont") == "true" and (e.get("font") != int(x["fontId"])
-                                           or not close(e.get("font_height"), int(x["fontHeight"]) / 20)):
-            probs.append(f"yazı alanı {eid}: yazı tipi ya da boyu farklı")
-    row("Yazı alanları (değişken, yazı, yazı tipi, boy)", len(texts["edit_texts"]), probs)
+        x = dump.edit_text_full[int(eid)]
+        for k in sorted(set(e) | set(x)):
+            if not close(e.get(k), x.get(k)):
+                probs.append(f"yazı alanı {eid}: {k} bizim {e.get(k)!r} / FFDec {x.get(k)!r}")
+    row("Yazı alanları (bütün alanlar: sınır, bayraklar, yazı tipi, boy, renk, uzunluk, hizalama, değişken, yazı)",
+        len(texts["edit_texts"]), probs)
     # 5. Sesler
     probs = []
     for sid, s in lib["sounds"].items():
@@ -532,63 +708,81 @@ def check_game(game, visual):
     row("Sesler (baytlar, örnek sayısı ve MP3 gecikmesi SWF'dekiyle aynı)", len(lib["sounds"]), probs)
     # Resimler
     probs = []
-    from PIL import Image
     for bid, rel in lib["images"].items():
-        el = dump.images[int(bid)]
-        jpeg = bytes.fromhex(el.get("jpegData") or el.get("imageData") or "")
-        size = swf.jpeg_size(jpeg) or swf.jpeg_size(dump.jpeg_tables + jpeg)
         try:
-            with Image.open(os.path.join(content, rel)) as im:
-                im.load()
-                if size and im.size != size:
-                    probs.append(f"resim {bid}: boyut {im.size} / SWF {size}")
+            d = image_difference(image_bytes(dump.images[int(bid)], dump.jpeg_tables), os.path.join(content, rel))
         except Exception as e:  # noqa: BLE001 - denetim her hatayı rapor eder
             probs.append(f"resim {bid}: açılamadı ({e})")
-    row("Resimler (açılıyor, boyutu SWF'dekiyle aynı)", len(lib["images"]), probs)
+            continue
+        if d is None or d != 0:
+            probs.append(f"resim {bid}: SWF'deki resimle piksel piksel aynı değil (en büyük kanal farkı {d})")
+    row("Resimler (SWF'deki veriden çözülen resimle piksel piksel aynı)", len(lib["images"]), probs)
     # 7. Kod: FFDec her kod parçasını ayrı .as dosyasına yazar (kare kodu, sınıf, düğme, klip eylemi)
-    files = sum(1 for _, _, names in os.walk(os.path.join(ROOT, "kaynak", "feudalism", game, "kod"))
-                for n in names if n.endswith(".as"))
-    expected = sum(dump.scripts.values())
-    probs = [] if files == expected else [f"kod dosyası {files} / SWF'deki kod parçası {expected} {dump.scripts}"]
-    row("Kod parçaları (kare, sınıf, düğme, klip eylemleri)", expected, probs)
+    probs = code_problems(game, dump, man)
+    row("Kod parçaları: yer yer (kare, sınıf, düğme, klip eylemi); üçüncü tarafınkiler yalnız listede",
+        sum(dump.code_keys.values()), probs)
     row("Resim dolgulu şekiller (desen matrisi ve resmi SWF'dekiyle aynı)", len(lib["bitmap_shapes"]),
         bitmap_shape_problems(game, lib, dump))
-    row("İnce çizgi işaretleri (FFDec'in SVG'sindekilerle aynı)", len(lib["shapes"]) + len(lib["bitmap_shapes"]),
-        hairline_problems(game, lib, archive))
+    row("İnce çizgi işaretleri (işaretli çizgiler; FFDec'in SVG'sindekilerle aynı)",
+        sum(len(v) for v in lib.get("hairlines", {}).values()), hairline_problems(game, lib, archive))
     swf_root = os.environ.get("SWF_KOK", os.path.join(ROOT, "..", "swf-oyunlar"))
-    t_probs, g_probs, c_probs, f_probs = translation_problems(game, lib, texts, dump, swf_root, archive)
+    t_probs, g_probs, f_probs = translation_problems(game, lib, texts, dump, swf_root, archive)
     row("Türkçe çeviri tabloları (kaynağıyla bayt bayt aynı)", len(ceviri.TABLES), t_probs)
     row("Çeviri hedefleri (her yazı, kutu, yazı tipi ve çizim SWF'de; parça sayısı kayıt sayısıyla aynı)",
         sum(lib.get("translation", {}).get("counts", {}).get(k, 0) for k in ("texts", "edit_texts", "drawn_texts")),
         g_probs)
-    row("Koddaki çeviriler (çevirinin aracı FFDec'in kod dökümüne yeniden uygulanınca aynı)",
-        lib.get("translation", {}).get("counts", {}).get("code_files", 0), c_probs)
+    checked, c_probs = code_translation_problems(game, swf_root)
+    row("Koddaki çeviriler (çevrilen koddaki her yeni dize sahibinin Türkçe SWF'sinin bayt kodunda)", checked,
+        c_probs)
     row("Yazı tiplerinin açık lisanslı karşılıkları (dosya kaynağıyla aynı, lisansı yanında)", len(texts["fonts"]),
         f_probs)
     row("Morph sınırları (iki ucun SWF'deki sınırlarının birleşimi)", len(lib["morphs"]),
         morph_bounds_problems(game, lib, dump))
+    checked, probs = morph_style_problems(game, lib, dump)
+    row("Morph uçlarının renkleri, saydamlıkları, çizgi kalınlıkları ve degrade matrisleri (FFDec XML'iyle sayısal)",
+        checked, probs)
+    refs, probs = undefined_references(lib, texts)
+    row(f"Tanımsız karakter başvurusu (dışarıda bırakılana {refs} başvuru: oynatıcı atlar)",
+        sum(len(ops) for t in [lib["root"], *lib["sprites"].values()] for ops in t["frames"]), probs)
+    checked, probs, notes = third_party_traces(game, lib, texts)
+    row("Sponsor ve üçüncü taraf izi (çizimlerin içerik özetiyle iki oyunda; kaynak/ kodunda)", checked, probs)
+    infos.extend(notes)
     # 6. Şekillerin görsel karşılaştırması
     if visual:
         probs, worst = compare_shapes(game, lib, archive)
-        row(f"Şekiller: motorun çizimi FFDec'inkiyle piksel piksel (en kötü fark %{worst:.2f})",
-            len(lib["shapes"]), probs)
+        row(f"Şekiller (resim dolgulular dahil): motorun çizimi FFDec'inkiyle piksel piksel (en kötü: "
+            f"%{worst[0]:.2f} farklı, katı {worst[1]})", len(lib["shapes"]) + len(lib["bitmap_shapes"]), probs)
         probs, worst = compare_morphs(game, lib, archive)
-        row(f"Morph başlangıç ve bitişleri piksel piksel (en kötü fark %{worst:.2f})", 2 * len(lib["morphs"]), probs)
+        row(f"Morph başlangıç ve bitişleri piksel piksel (en kötü: %{worst[0]:.2f} farklı, katı {worst[1]})",
+            2 * len(lib["morphs"]), probs)
         probs, worst = compare_drawn_texts(game, lib)
-        row(f"Çizilmiş yazıların Türkçe hâlleri, Türkçe SWF'nin çizimiyle (en kötü fark %{worst:.2f})",
-            len(lib.get("translation", {}).get("drawn_texts", {})), probs)
-    return rows, problems
+        row(f"Çizilmiş yazıların Türkçe hâlleri, Türkçe SWF'nin çizimiyle (en kötü: %{worst[0]:.2f} farklı, "
+            f"katı {worst[1]})", len(lib.get("translation", {}).get("drawn_texts", {})), probs)
+    return rows, problems, infos
 
 
 # --- Görsel karşılaştırma -------------------------------------------------------------------------
 
-PIXEL_LIMIT = 2.0  # izin verilen ortalama renk farkı (%, 0–100); kenar yumuşatma farkları için pay
+INK_LEVEL = 8  # beyazdan bu kadar (0–255) uzak piksel "mürekkepli"
+DIFF_LEVEL = 32  # 1 piksellik kayma payından sonra bu kadar (0–255) farklı piksel "belirgin farklı"
+# Şekil başına sınırlar. Ayar (16 Ekim 2026, iki oyunun 3255 şekli ve 70 morph ucu): doğru çizimlerde
+# iç piksellerin en çok %8,9'u belirgin farklı, katı farklı bölge en çok 2 piksel (kenar yumuşatma).
+# B2'deki ters degrade %13,9 ve 433 752 katı piksel verir.
+INK_LIMIT = 12.0  # iç piksellerin en çok %12'si belirgin farklı olabilir
+SOLID_LIMIT = 16  # katı farklı bölge en çok 16 piksel (4× çizimde 1 kaynak pikseli)
 
 
-def pixel_difference(a, b, offset_a=(0, 0), offset_b=(0, 0)):
-    """İki RGBA resmin ortalama renk farkı (%, 0–100). Resimler gerilmez: her biri kendi kaymasıyla
-    (piksel, aynı koordinat düzleminde) beyaz bir tuvale konur, tuvalin tamamı karşılaştırılır."""
-    from PIL import Image, ImageChops
+def ink_difference(a, b, offset_a=(0, 0), offset_b=(0, 0)):
+    """Yerel ölçüt: (iç piksellerin yüzde kaçı belirgin farklı, katı farklı piksel sayısı).
+
+    İki resim beyaz tuvale gerilmeden konur. Bir piksel, öbür resmin 3×3 komşuluğundaki en yakın
+    pikselden bile DIFF_LEVEL'dan fazla farklıysa (iki yönde de bakılır) belirgin farklıdır: kenar
+    yumuşatmasındaki 1 piksellik kaymalar böylece affedilir. Oran iç piksellerde (3×3 komşuluğu iki çizimde
+    de mürekkepli) ölçülür: ince çizgilerin bütün pikselleri kenardır, kenar farkı orana girmez. Katı farklı
+    piksel: 3×3 komşuluğunun tamamı belirgin farklı olan piksel. Kenar boyunca uzanan ince (1–2 piksellik) fark çizgileri katı
+    sayılmaz; gerçek hatalar (yanlış renk, ters degrade, eksik parça) kümelenir ve katı bölge bırakır."""
+    import numpy as np
+    from PIL import Image
     x0 = min(offset_a[0], offset_b[0])
     y0 = min(offset_a[1], offset_b[1])
     x1 = max(offset_a[0] + a.width, offset_b[0] + b.width)
@@ -598,10 +792,44 @@ def pixel_difference(a, b, offset_a=(0, 0), offset_b=(0, 0)):
     def place(im, off):
         canvas = Image.new("RGBA", size, (255, 255, 255, 255))
         canvas.alpha_composite(im.convert("RGBA"), (int(round(off[0] - x0)), int(round(off[1] - y0))))
-        return canvas.convert("RGB")
-    diff = ImageChops.difference(place(a, offset_a), place(b, offset_b)).convert("L")
-    total = sum(i * n for i, n in enumerate(diff.histogram()))
-    return 100 * total / (255 * size[0] * size[1])
+        return np.asarray(canvas.convert("RGB"), dtype=np.int16)
+    pa, pb = place(a, offset_a), place(b, offset_b)
+    ink_a = (255 - pa).max(axis=2) > INK_LEVEL
+    ink_b = (255 - pb).max(axis=2) > INK_LEVEL
+    inked = ink_a | ink_b
+    if not inked.any():
+        return 0.0, 0
+    # Yalnız mürekkepli bölge (2 piksel paylı) karşılaştırılır
+    ys, xs = np.nonzero(inked)
+    y0, y1 = max(0, ys.min() - 2), ys.max() + 3
+    x0, x1 = max(0, xs.min() - 2), xs.max() + 3
+    pa, pb = pa[y0:y1, x0:x1], pb[y0:y1, x0:x1]
+    ink_a, ink_b, inked = ink_a[y0:y1, x0:x1], ink_b[y0:y1, x0:x1], inked[y0:y1, x0:x1]
+    h, w = inked.shape
+
+    def nearest(p, q):
+        # q'nun 3×3 komşuluğundaki en yakın piksele uzaklık (kanalların en büyük farkı); dışı beyaz
+        padded = np.pad(q, ((1, 1), (1, 1), (0, 0)), constant_values=255)
+        best = None
+        for dy in range(3):
+            for dx in range(3):
+                d = np.abs(p - padded[dy:dy + h, dx:dx + w]).max(axis=2)
+                best = d if best is None else np.minimum(best, d)
+        return best
+
+    def eroded(mask):
+        padded = np.pad(mask, 1, mode="edge")
+        out = np.ones_like(mask)
+        for dy in range(3):
+            for dx in range(3):
+                out &= padded[dy:dy + h, dx:dx + w]
+        return out
+    bad = (np.maximum(nearest(pa, pb), nearest(pb, pa)) > DIFF_LEVEL) & inked
+    # İç pikseller: 3×3 komşuluğu iki çizimde de mürekkepli (kenar yumuşatması buraya ulaşmaz)
+    interior = eroded(ink_a) & eroded(ink_b)
+    total = int(interior.sum())
+    ratio = 100 * float((bad & interior).sum()) / total if total else 0.0
+    return ratio, int(eroded(bad).sum())
 
 
 def render_all(jobs):
@@ -725,25 +953,41 @@ def bitmap_shape_problems(game, lib, dump):
     return probs
 
 
-def compare_rendered(pairs, search=False):
-    """[(ad, bizim png, bizim kayma, FFDec png, FFDec kayma)] → (sorunlar, en kötü fark). `search`:
-    FFDec çiziminin yerini en iyi örtüşmeyle bul."""
+def rendered_difference(pair):
+    """Bir çizim çiftinin ölçüsü (paralel çalışabilsin diye modül düzeyinde)."""
     from PIL import Image
-    probs, worst = [], 0.0
-    for name, ours, off_ours, theirs, off_theirs in pairs:
-        if not os.path.exists(ours):
-            probs.append(f"{name}: motor çizemedi")
+    name, ours, off_ours, theirs, off_theirs, search = pair
+    if not os.path.exists(ours):
+        return name, "motor çizemedi"
+    if not os.path.exists(theirs):
+        return name, "FFDec'in çizimi yok"
+    with Image.open(ours) as a, Image.open(theirs) as b:
+        if search:
+            off_ours, off_theirs = (0, 0), best_offset(a, b)
+        return name, ink_difference(a, b, off_ours, off_theirs)
+
+
+def compare_rendered(pairs, search=False):
+    """[(ad, bizim png, bizim kayma, FFDec png, FFDec kayma)] → (sorunlar, en kötü (oran, katı)).
+    Ölçüt `ink_difference`: şekil başına iç piksellerin en çok %INK_LIMIT'i belirgin farklı olabilir ve
+    SOLID_LIMIT'ten büyük katı farklı bölge olmamalıdır. `search`: FFDec çiziminin yerini en iyi
+    örtüşmeyle bul (morph PNG'lerinin belgelenmemiş payı için). Bütün işlemci çekirdeklerinde çalışır."""
+    from multiprocessing import Pool
+    jobs = [(*p, search) for p in pairs]
+    if len(jobs) > 8:
+        with Pool() as pool:
+            results = pool.map(rendered_difference, jobs, chunksize=8)
+    else:
+        results = [rendered_difference(j) for j in jobs]
+    probs, worst = [], (0.0, 0)
+    for name, result in results:
+        if isinstance(result, str):
+            probs.append(f"{name}: {result}")
             continue
-        if not os.path.exists(theirs):
-            probs.append(f"{name}: FFDec'in çizimi yok")
-            continue
-        with Image.open(ours) as a, Image.open(theirs) as b:
-            if search:
-                off_ours, off_theirs = (0, 0), best_offset(a, b)
-            d = pixel_difference(a, b, off_ours, off_theirs)
-        worst = max(worst, d)
-        if d > PIXEL_LIMIT:
-            probs.append(f"{name}: piksel farkı %{d:.2f}")
+        ratio, solid = result
+        worst = (max(worst[0], ratio), max(worst[1], solid))
+        if ratio > INK_LIMIT or solid > SOLID_LIMIT:
+            probs.append(f"{name}: iç piksellerin %{ratio:.2f}'i belirgin farklı, katı farklı bölge {solid} piksel")
     return probs, worst
 
 
@@ -764,15 +1008,27 @@ def hairline_svg(svg, scale):
     return HAIRLINE_PATH.sub(fix, svg)
 
 
+MAX_TEXTURE = 8192  # grafik kartının doku sınırı (piksel)
+
+
+def svg_size(path):
+    with open(path, encoding="utf-8") as f:
+        head = f.read(400)
+    return [float(re.search(rf'{k}="([\d.]+)px"', head).group(1)) for k in ("width", "height")]
+
+
 def compare_shapes(game, lib, archive):
     """Şekiller 4 kat büyütülerek çizilir; iki çizim de şeklin sınırının sol üst köşesinden başlar.
-    İnce çizgili şekiller `hairline_svg` kuralıyla çizilir."""
+    İnce çizgili şekiller `hairline_svg` kuralıyla çizilir. 4 katı grafik kartının doku sınırını aşan
+    şekil 2 katla çizilir ve FFDec'in 4× çizimi yarıya küçültülerek karşılaştırılır."""
+    from PIL import Image
     ref_png = os.path.join(ROOT, "referans", game, "png")
-    scale = 4
     with tempfile.TemporaryDirectory() as td:
-        jobs = []
-        for sid in lib["shapes"]:
-            src = os.path.join(ROOT, "content", "feudalism", game, "shapes", f"{sid}.svg")
+        jobs, pairs = [], []
+        items = [("shapes", sid) for sid in lib["shapes"]] + [("shapes-bitmap", sid) for sid in lib["bitmap_shapes"]]
+        for folder, sid in items:
+            src = os.path.join(ROOT, "content", "feudalism", game, folder, f"{sid}.svg")
+            scale = 4 if max(svg_size(src)) * 4 <= MAX_TEXTURE else 2
             if str(sid) in lib.get("hairlines", {}):
                 with open(src, encoding="utf-8") as f:
                     svg = hairline_svg(f.read(), scale)
@@ -780,9 +1036,16 @@ def compare_shapes(game, lib, archive):
                 with open(src, "w", encoding="utf-8") as f:
                     f.write(svg)
             jobs.append((src, os.path.join(td, f"{sid}.png"), scale))
+            reference = os.path.join(ref_png, f"{sid}.png")
+            if scale != 4 and os.path.exists(reference):
+                with Image.open(reference) as im:
+                    small = im.convert("RGBA").resize((round(im.width / 2), round(im.height / 2)), Image.LANCZOS)
+                reference = os.path.join(td, f"{sid}.ffdec-2x.png")
+                small.save(reference)
+            pairs.append((f"{game} şekil {sid}" + (" (2×)" if scale != 4 else ""), os.path.join(td, f"{sid}.png"),
+                          (0, 0), reference, (0, 0)))
         render_all(jobs)
-        return compare_rendered([(f"{game} şekil {sid}", os.path.join(td, f"{sid}.png"), (0, 0),
-                                  os.path.join(ref_png, f"{sid}.png"), (0, 0)) for sid in lib["shapes"]])
+        return compare_rendered(pairs)
 
 
 def hairline_problems(game, lib, archive):
@@ -808,21 +1071,11 @@ def file_hash(path):
         return hashlib.sha256(f.read()).hexdigest()
 
 
-def tree_files(folder):
-    """Klasördeki dosyalar: göreli yol → içerik."""
-    out = {}
-    for d, _, names in os.walk(folder):
-        for n in names:
-            with open(os.path.join(d, n), "rb") as f:
-                out[os.path.relpath(os.path.join(d, n), folder).replace(os.sep, "/")] = f.read()
-    return out
-
-
 def translation_problems(game, lib, texts, dump, swf_root, archive):
     """Türkçe çeviri: tablolar kaynağıyla bayt bayt aynı mı; her girdinin hedefi FFDec'in dökümünde var mı
-    ve sabit yazıların parça sayısı XML'deki kayıt sayısıyla aynı mı; kod çevirisi, çevirinin aracı FFDec'in
-    kod dökümüne yeniden uygulandığında aynı mı; her yazı tipinin açık lisanslı karşılığı ve lisansı yerinde
-    mi. Dönen: (tablo sorunları, hedef sorunları, kod sorunları, yazı tipi sorunları)."""
+    ve sabit yazıların parça sayısı XML'deki kayıt sayısıyla aynı mı; her yazı tipinin açık lisanslı karşılığı
+    ve lisansı yerinde mi. (Kod çevirisi ayrıca, sahibinin Türkçe SWF'siyle: `code_translation_problems`.)
+    Dönen: (tablo sorunları, hedef sorunları, yazı tipi sorunları)."""
     src = os.path.join(swf_root, ceviri.TRANSLATIONS[game], "ceviri")
     content = os.path.join(ROOT, "content", "feudalism", game)
     tables_probs = []
@@ -847,17 +1100,6 @@ def translation_problems(game, lib, texts, dump, swf_root, archive):
             target_probs.append(f"{game} çizilmiş yazı {sid}: SWF'de şekil değil")
         if lib.get("translation", {}).get("drawn_texts", {}).get(sid, {}).get("file") != f"ceviri/sekiller/{sid}.svg":
             target_probs.append(f"{game} çizilmiş yazı {sid}: library.json'da yok")
-    with tempfile.TemporaryDirectory() as td:
-        try:
-            ceviri.translate_code(swf_root, os.path.join(archive, "scripts"), src, os.path.join(td, "kod-tr"))
-            expected = tree_files(os.path.join(td, "kod-tr"))
-        except ValueError as e:
-            expected = None
-            code_probs = [f"{game} kod çevirisi FFDec'in kod dökümüne uygulanamadı: {e}"]
-    if expected is not None:
-        ours = tree_files(os.path.join(ROOT, "kaynak", "feudalism", game, "kod-tr"))
-        code_probs = [f"{game} çevrilmiş kod {n}: yeniden üretilenle aynı değil" for n in sorted(set(expected) | set(ours))
-                      if expected.get(n) != ours.get(n)]
     font_probs = []
     table = tables["yazitipleri"]
     for fid, font in texts["fonts"].items():
@@ -872,7 +1114,223 @@ def translation_problems(game, lib, texts, dump, swf_root, archive):
                         if os.path.basename(rel).startswith(prefix)), None)
             if lic is None or not os.path.exists(os.path.join(ROOT, "content", "fonts", lic)):
                 font_probs.append(f"{game} yazı tipi {fid}: lisans metni yok")
-    return tables_probs, target_probs, code_probs, font_probs
+    return tables_probs, target_probs, font_probs
+
+
+def image_bytes(image, jpeg_tables):
+    """XmlDump.images kaydı (tür, veri) → çözülebilir JPEG/PNG baytları. DefineBits'in verisi dosyanın ortak
+    JPEG tablolarıyla birleştirilir; bazı dosyalarda başta duran hatalı FFD9FFD8 atılır."""
+    kind, data = image
+    if data[:4] == b"\xff\xd9\xff\xd8":
+        data = data[4:]
+    if kind == "DefineBits":
+        tables = jpeg_tables[4:] if jpeg_tables[:4] == b"\xff\xd9\xff\xd8" else jpeg_tables
+        if tables.endswith(b"\xff\xd9") and data.startswith(b"\xff\xd8"):
+            data = tables[:-2] + data[2:]
+    return data
+
+
+CODE_FILE = re.compile(r"^(DoAction|BUTTONCONDACTION|CLIPACTIONRECORD)(?:_\d+)?(?:\.as$| )")
+# FFDec klasör adına adı ekler: DefineSprite_<kimlik>_<ad>, PlaceObject2_<karakter>_<ad>_<derinlik>
+SPRITE_FOLDER = re.compile(r"^(DefineSprite_\d+)(?:_.*)?$")
+PLACE_FOLDER = re.compile(r"^(PlaceObject\d?_\d+)(?:_.+)?(_\d+)$")
+
+
+def code_key(rel):
+    """FFDec betik dökümündeki dosyanın kod parçası yeri (bkz. XmlDump.code_places)."""
+    parts = rel.split("/")
+    m = CODE_FILE.match(parts[-1])
+    if not m:
+        return rel
+    folders = [PLACE_FOLDER.sub(r"\1\2", SPRITE_FOLDER.sub(r"\1", p)) for p in parts[:-1]]
+    return "/".join(folders + [m.group(1)])
+
+
+def code_problems(game, dump, man):
+    """Her kod parçası yerinde mi: SWF'deki (XML) her parça ya kaynak/.../kod altında ya da üçüncü tarafın
+    kodu olarak manifest'te (yalnız yerel arşiv) olmalı; fazlası da eksiği de sorundur."""
+    folder = os.path.join(ROOT, "kaynak", "feudalism", game, "kod")
+    ours = {}
+    for d, _, names in os.walk(folder):
+        for n in names:
+            key = code_key(os.path.relpath(os.path.join(d, n), folder).replace(os.sep, "/"))
+            ours[key] = ours.get(key, 0) + 1
+    for rel in man.get("code_excluded", {}):
+        if not os.path.exists(os.path.join(ROOT, "referans", game, "tam", "scripts", rel)):
+            ours["?"] = ours.get("?", 0) + 1
+        key = code_key(rel)
+        ours[key] = ours.get(key, 0) + 1
+    return [f"{game} kod {k}: bizde {ours.get(k, 0)} / SWF'de {dump.code_keys.get(k, 0)}"
+            for k in sorted(set(ours) | set(dump.code_keys)) if ours.get(k, 0) != dump.code_keys.get(k, 0)]
+
+
+AS_STRING = re.compile(r'"((?:[^"\\\n]|\\.)*)"')
+AS_ESCAPES = {"n": "\n", "r": "\r", "t": "\t", "b": "\b", "f": "\f"}
+
+
+def as_literals(source):
+    """FFDec'in yazdığı ActionScript kaynağındaki dize sabitleri (kaçış dizileri çözülmüş)."""
+    def unescape(m):
+        e = m.group(1)
+        if e[0] in "ux" and len(e) > 1:
+            return chr(int(e[1:], 16))
+        return AS_ESCAPES.get(e, e)
+    return [re.sub(r"\\(u[0-9a-fA-F]{4}|x[0-9a-fA-F]{2}|.)", unescape, lit) for lit in AS_STRING.findall(source)]
+
+
+def code_translation_problems(game, swf_root, strings=None):
+    """Çevrilen kod (kaynak/.../kod-tr): her dosyanın orijinali kod/ altında olmalı; orijinalde olmayan her
+    dize sabiti sahibinin Türkçe SWF'sinin bayt kodundaki dizeler arasında bulunmalı. Dönen: (denetlenen
+    yeni dize sayısı, sorunlar)."""
+    tr_swf = os.path.join(swf_root, os.path.dirname(aktar.GAMES[game]),
+                          os.path.basename(aktar.GAMES[game]).replace("-orijinal.swf", "-tr.swf"))
+    if strings is None:
+        strings = set(swf.movie_strings(tr_swf))
+    base = os.path.join(ROOT, "kaynak", "feudalism", game)
+    checked, probs = 0, []
+    for d, _, names in os.walk(os.path.join(base, "kod-tr")):
+        for n in names:
+            rel = os.path.relpath(os.path.join(d, n), os.path.join(base, "kod-tr"))
+            original = os.path.join(base, "kod", rel)
+            if not os.path.exists(original):
+                probs.append(f"{game} çevrilmiş kod {rel}: orijinali kod/ altında yok")
+                continue
+            with open(original, encoding="utf-8") as f:
+                old = set(as_literals(f.read()))
+            with open(os.path.join(d, n), encoding="utf-8") as f:
+                for lit in as_literals(f.read()):
+                    if lit in old:
+                        continue
+                    checked += 1
+                    if lit not in strings:
+                        probs.append(f"{game} çevrilmiş kod {rel}: {lit[:60]!r} Türkçe SWF'de yok")
+    return checked, probs
+
+
+def svg_styles(svg):
+    """Morph ucu SVG'sindeki stiller: [(tür, değerler)]: degrade (matris, [(oran, renk, saydamlık)]),
+    düz dolgu (renk, saydamlık), çizgi (renk, saydamlık, kalınlık)."""
+    root = ET.fromstring(svg)
+    out = []
+    for el in root.iter():
+        tag = el.tag.split("}")[-1]
+        if tag in ("linearGradient", "radialGradient"):
+            stops = [(float(st.get("offset")), st.get("stop-color", "").lower(), float(st.get("stop-opacity", "1")))
+                     for st in el if st.tag.split("}")[-1] == "stop"]
+            out.append(("gradient", (tag, aktar.parse_matrix(el.get("gradientTransform")), stops)))
+        elif tag == "path":
+            if el.get("fill", "none").startswith("#"):
+                out.append(("fill", (el.get("fill").lower(), float(el.get("fill-opacity", "1")))))
+            if el.get("stroke", "none").startswith("#"):
+                out.append(("line", (el.get("stroke").lower(), float(el.get("stroke-opacity", "1")),
+                                     float(el.get("stroke-width", "1")))))
+    return out
+
+
+def style_matches(kind, value, styles, end):
+    """SVG'deki stil, XML'deki stillerden birinin `end` ucuyla aynı mı (matris 6 ondalığa yuvarlanmış)."""
+    hexc = aktar.hex_colour
+    if kind == "gradient":
+        tag, matrix, stops = value
+        types = ("linear",) if tag == "linearGradient" else ("radial", "focal")
+        for f in styles["fills"]:
+            if f["type"] not in types or len(f[end]["stops"]) != len(stops):
+                continue
+            if any(abs(a - b) > 1e-6 for a, b in zip(matrix, f[end]["matrix"])):
+                continue
+            if all(abs(o - r / 255) < 1e-6 and c == hexc(rgba) and abs(op - rgba[3] / 255) < 1e-6
+                   for (o, c, op), (r, rgba) in zip(stops, f[end]["stops"])):
+                return True
+        return False
+    if kind == "fill":
+        colour, op = value
+        return any(f["type"] == "solid" and colour == hexc(f[end]) and abs(op - f[end][3] / 255) < 1e-6
+                   for f in styles["fills"])
+    colour, op, width = value
+    return any("color" in line[end] and colour == hexc(line[end]["color"]) and abs(op - line[end]["color"][3] / 255)
+               < 1e-6 and abs(width - line[end]["width"]) < 1e-6 for line in styles["lines"])
+
+
+def morph_style_problems(game, lib, dump):
+    """Morph uçlarındaki her stil (degrade matrisi ve durakları, düz renk, çizgi rengi ve kalınlığı) FFDec
+    XML'indeki aynı ucun bir stiliyle sayısal olarak aynı mı. Dönen: (denetlenen stil sayısı, sorunlar)."""
+    checked, probs = 0, []
+    for mid in lib["morphs"]:
+        for end in ("start", "end"):
+            with open(os.path.join(ROOT, "content", "feudalism", game, "morphs", f"{mid}.{end}.svg"),
+                      encoding="utf-8") as f:
+                styles = svg_styles(f.read())
+            for kind, value in styles:
+                checked += 1
+                if not style_matches(kind, value, dump.morph_styles[int(mid)], end):
+                    probs.append(f"{game} morph {mid} {end}: {kind} {value} SWF'deki hiçbir stile uymuyor")
+    return checked, probs
+
+
+def undefined_references(lib, texts):
+    """Zaman çizelgelerinde ve düğmelerde, kütüphanede tanımı olmayan karaktere başvuru. Dışarıda bırakılana
+    (library.json "excluded") başvuru sorun değildir, sayılır (oynatıcı onu atlar). Dönen: (o sayı, sorunlar)."""
+    defined = {int(k) for key in ("shapes", "bitmap_shapes", "morphs", "sprites", "buttons") for k in lib[key]}
+    defined |= {int(k) for key in ("texts", "edit_texts") for k in texts[key]}
+    excluded = {int(k) for k in lib["excluded"]}
+    refs, probs = 0, []
+    timelines = [("kök film", lib["root"])] + [(f"sprite {k}", t) for k, t in lib["sprites"].items()]
+    places = [(name, i, op["char"]) for name, t in timelines for i, ops in enumerate(t["frames"]) for op in ops
+              if "char" in op]
+    places += [(f"düğme {b}", 0, r["char"]) for b, recs in lib["buttons"].items() for r in recs]
+    for name, frame, char in places:
+        if char in excluded:
+            refs += 1
+        elif char not in defined:
+            probs.append(f"{name} kare {frame + 1}: karakter {char} tanımlı değil ve dışarıda bırakılanlarda da yok")
+    return refs, probs
+
+
+def body_digest(body):
+    """Karakter tanımının kimliği dışındaki baytlarının özeti: aynı çizim başka kimlikle de bulunur."""
+    import hashlib
+    return hashlib.sha256(body[2:]).hexdigest()
+
+
+SPONSOR_WORDS = re.compile(r"arcadetown|newgrounds|mochibot|mochiad|mochimedia", re.I)
+
+
+def third_party_traces(game, lib, texts):
+    """Sponsor ve üçüncü taraf izi: (1) aktarılan şekil, morph ve resimlerin içerik özeti, iki oyunda da
+    dışarıda bırakılan karakterlerinkiyle aynı olmamalı (aynı logo öbür oyunda başka kimlikle durabilir);
+    (2) kaynak/ altında Adobe mx sınıfı ya da reklam/izleme kütüphanesi olmamalı. Ayrıca sponsor adı geçen
+    yazılar listelenir (bilgi). Dönen: (denetlenen kayıt sayısı, sorunlar, bilgi notları)."""
+    swf_root = os.environ.get("SWF_KOK", os.path.join(ROOT, "..", "swf-oyunlar"))
+    sponsor = {}
+    for g in aktar.GAMES:
+        movie = swf.Movie(os.path.join(swf_root, aktar.GAMES[g]))
+        with open(os.path.join(ROOT, "content", "feudalism", g, "library.json"), encoding="utf-8") as f:
+            excluded = {int(k) for k in json.load(f)["excluded"]}
+        bodies = {**movie.shape_bodies, **movie.morph_bodies}
+        for cid in excluded & set(bodies):
+            sponsor[body_digest(bodies[cid][1])] = f"{g} {cid}"
+        if g == game:
+            ours = bodies
+    imported = [int(k) for key in ("shapes", "bitmap_shapes", "morphs") for k in lib[key]]
+    probs = [f"{game} karakter {cid}: dışarıda bırakılan {sponsor[body_digest(ours[cid][1])]} ile aynı çizim"
+             for cid in imported if body_digest(ours[cid][1]) in sponsor]
+    checked = len(imported)
+    # Sponsor adı geçen yazılar oyunun kendi yazısıdır (logo değil); sorun sayılmaz, karar için listelenir
+    notes = [f"{game} {'yazı' if kind == 'texts' else 'yazı alanı'} {tid}: {re.sub(r'<[^>]+>', '', t['text'])[:90]!r}"
+             for kind in ("texts", "edit_texts") for tid, t in texts[kind].items()
+             if SPONSOR_WORDS.search(t.get("text", ""))]
+    for sub in ("kod", "kod-tr"):
+        folder = os.path.join(ROOT, "kaynak", "feudalism", game, sub)
+        for d, _, names in os.walk(folder):
+            for n in names:
+                rel = os.path.relpath(os.path.join(d, n), folder).replace(os.sep, "/")
+                checked += 1
+                with open(os.path.join(d, n), encoding="utf-8") as f:
+                    src = f.read()
+                # Kütüphanelerin kendisi (oyunun kodundaki bir çağrı değil)
+                if rel.startswith("__Packages/mx/") or re.search(r"function __com_mochibot__|class MochiAd\b", src):
+                    probs.append(f"{game} {sub}/{rel}: üçüncü tarafın kodu")
+    return checked, probs, notes
 
 
 def compare_drawn_texts(game, lib):
@@ -930,12 +1388,15 @@ def main(argv):
            "FFDec'in çizimi arasında piksel piksel karşılaştırır.", ""]
     all_problems = 0
     for game in ("f1", "f2"):
-        rows, problems = check_game(game, visual)
+        rows, problems, infos = check_game(game, visual)
         all_problems += len(problems)
         out += [f"## {'Feudalism' if game == 'f1' else 'Feudalism 2'} ({game})", "",
                 "| Denetim | Denetlenen | Sorun |", "|---|---|---|"]
         out += [f"| {n} | {c} | {p} |" for n, c, p in rows]
         out.append("")
+        if infos:
+            out += ["Bilgi (sorun sayılmaz): sponsor adı geçen yazılar. Oyunun kendi yazılarıdır; gösterilip",
+                    "gösterilmeyecekleri sahibinin kararına bağlı.", ""] + [f"- {i}" for i in infos] + [""]
         if problems:
             out += ["Sorunlar:", ""] + [f"- {p}" for p in problems[:300]]
             if len(problems) > 300:
@@ -946,25 +1407,31 @@ def main(argv):
     out += ["", "## Yöntem ve sınırlar", "",
             "- Kaynak: SWF'yi bizim ayrıştırıcımızdan bağımsız okuyan FFDec 24.1.1'in XML dökümü (`-swf2xml`)",
             "  ve FFDec'in kendi PNG çizimleri (şekiller ve morph uçları 4× büyütülmüş).",
-            "- Piksel farkı: iki çizim beyaz tuvale gerilmeden konur, ortalama renk farkı %2'yi aşarsa sorun",
-            "  sayılır (kenar yumuşatma farkları için pay).",
+            "- Piksel karşılaştırması (şekil başına, yerel): iki çizim beyaz tuvale gerilmeden konur. Bir piksel,",
+            "  öbür çizimin 3×3 komşuluğundaki en yakın pikselden bile 32/255'ten fazla farklıysa belirgin",
+            "  farklıdır (kenar yumuşatmasındaki 1 piksellik kayma affedilir). Sorun: iç piksellerin (3×3",
+            "  komşuluğu iki çizimde de dolu) %12'sinden fazlası belirgin farklı, ya da 16 pikselden büyük katı",
+            "  farklı bölge (3×3 komşuluğunun tamamı farklı) var. Ayar: doğru çizimlerde en çok %8,9 ve 2 piksel;",
+            "  Denetim 2'nin B2 hatası (ters degrade) %13,9 ve 433 752 piksel verir.",
             "- İnce çizgiler: Flash 1 pikselden ince çizgiyi ekranda 1 piksel çizer. Bu çizgiler",
             "  `data-hairline` ile işaretli aktarılır ve library.json'da listelenir; denetim onları bu kuralla",
             "  çizer. Motor kuralı oynatıcıda uygulayacak (Faz B).",
             "- Morph uçları: FFDec'in morph PNG'leri sınıra belgelenmemiş bir pay ekler; çizimler mürekkep",
-            "  merkezi ve en iyi örtüşmeyle hizalanır. Sınırın kendisi XML'deki iki ucun sınırıyla sayısal",
-            "  olarak ayrıca denetlenir.",
-            "- Resim dolgulu şekiller (zemin dokuları): motor resim dolgusunu henüz çizmediği için sayısal",
-            "  denetlenir: kenarların kullandığı her resim dolgusunun SVG'deki desen matrisi SWF'deki dolgu",
-            "  matrisiyle, desenin resmi aktarılan resim dosyasıyla piksel piksel aynıdır. Görsel karşılaştırma",
-            "  motor resim dolgusunu çizdiğinde eklenecek (Faz B).",
+            "  merkezi ve en iyi örtüşmeyle hizalanır (yalnız bütünün yeri; parçaların yerel kayması ölçütte",
+            "  görünür). Sınırın kendisi XML'deki iki ucun sınırıyla sayısal olarak ayrıca denetlenir. Uçların",
+            "  renkleri, saydamlıkları, çizgi kalınlıkları ve degrade matrisleri FFDec'in XML'iyle sayısal",
+            "  olarak karşılaştırılır.",
+            "- Resim dolgulu şekiller (zemin dokuları): kenarların kullandığı her resim dolgusunun SVG'deki desen",
+            "  matrisi SWF'deki dolgu matrisiyle, desenin resmi aktarılan resim dosyasıyla piksel piksel aynıdır;",
+            "  motorun çizimi (resim boyası) FFDec'in çizimiyle öbür şekiller gibi karşılaştırılır.",
             "- Sesler: dosyalar SWF'deki MP3 verisiyle bayt bayt, örnek sayısı ve MP3 başlangıç gecikmesi",
             "  XML'deki değerlerle aynıdır. Zaman çizelgelerindeki ses kayıtları durdurma, tekrar, giriş/çıkış",
             "  noktası ve zarf bilgisiyle karşılaştırılır.",
             "- Türkçe çeviri: tablolar kaynağıyla (swf-oyunlar) bayt bayt aynıdır; her girdinin hedefi FFDec'in",
             "  dökümünde aranır, sabit yazıların parça sayısı XML'deki kayıt sayısıyla karşılaştırılır. Kod",
-            "  çevirisi, çevirinin kendi aracı FFDec'in kod dökümüne yeniden uygulanarak sınanır. \"Öldün...\"",
-            "  çizimi Türkçe SWF'nin FFDec çizimiyle piksel piksel karşılaştırılır.",
+            "  çevirisinde orijinalde olmayan her dize, sahibinin Türkçe SWF'sinin bayt kodundaki dizeler",
+            "  arasında aranır (kendi okuyucumuzla). \"Öldün...\" çizimi Türkçe SWF'nin FFDec çizimiyle",
+            "  piksel piksel karşılaştırılır.",
             "- Aktarılmayanlar (yerel arşivde): sponsor logoları, Macromedia/Adobe arayüz bileşenleri, gömülü",
             "  yazı tipleri (yerine açık lisanslı karşılıkları). Listesi ve nedenleri",
             "  `kaynak/feudalism/<oyun>/manifest.json` içindedir."]
