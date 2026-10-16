@@ -15,6 +15,7 @@ Figürler: f1/1104, f1/1106, f1/1108, f1/1110, f1/1112, f1/1114, f1/1116, f1/111
 | Kontur (çizgi) sayısı | 0 | 0 | 1 | 1 | 4 |
 | En kalın kontur (çizim birimi) | 0 | 0 | 1 | 1 | 1 |
 | Ayrı dolgu rengi / degradesi | 13 | 19 | 20 | 26,5 | 32 |
+| Kenarlarda eğri payı | 0,591 | 0,615 | 0,683 | 0,708 | 0,749 |
 | Degradeli dolgu oranı | 0,238 | 0,299 | 0,405 | 0,498 | 0,562 |
 | Dairesel degrade sayısı | 0 | 0 | 0 | 0 | 2 |
 | Degradelerde 2 duraklı oranı | 0,875 | 1 | 1 | 1 | 1 |
@@ -25,6 +26,9 @@ Figürler: f1/1104, f1/1106, f1/1108, f1/1110, f1/1112, f1/1114, f1/1116, f1/111
 | Çok doygun piksel oranı (S>0,85, V>0,6) | 0 | 0,007 | 0,045 | 0,16 | 0,318 |
 | Geniş alanların doygunluğu (alanı ≥%5 renkler, alan ağırlıklı) | 0 | 0,155 | 0,394 | 0,554 | 0,709 |
 | En doygun geniş alan (alanı ≥%5) | 0 | 0,469 | 0,669 | 0,993 | 1 |
+| Doygun renklerin (S>0,7, V>0,4) toplam alanı | 0 | 0,033 | 0,046 | 0,309 | 0,463 |
+| Doygun renk ailesi sayısı (30°'lik ton dilimi, alanı ≥%2) | 0 | 1 | 1 | 2,5 | 3 |
+| Saf ana renk alanı (S≥0,95, V≥0,95) | 0 | 0 | 0 | 0,004 | 0,094 |
 
 Doğrusal degrade yönleri (açıktan koyuya, toplam 147): sola koyulaşır: 53 (%36), sağa koyulaşır: 51 (%35), aşağı koyulaşır: 32 (%22), yukarı koyulaşır: 11 (%7).
 
@@ -34,6 +38,7 @@ Bütün degradelerde ΔV: ortanca 0,126, çeyrekler arası 0,071–0,184.
 
 | Oran | En küçük | 1. çeyrek | Ortanca | 3. çeyrek | En büyük |
 |---|---|---|---|---|---|
+| Asimetri (önden simetrik duruştan uzuv açısı farkı, derece) | 3,787 | 9,886 | 14,425 | 17,733 | 37,034 |
 | Bacak / boy (kasıktan tabana) | 0,365 | 0,403 | 0,422 | 0,43 | 0,446 |
 | Boy (baş sayısı) | 6 | 7,227 | 7,654 | 8,255 | 8,714 |
 | Bel yüksekliği / boy (tepeden) | 0,37 | 0,389 | 0,407 | 0,418 | 0,45 |
@@ -72,6 +77,7 @@ Figürler: f1/1180, f1/1861, f1/1862, f1/1863, f1/1864, f1/1881, f2/2800
 | Kontur (çizgi) sayısı | 0 | 0 | 0 | 0,5 | 1 |
 | En kalın kontur (çizim birimi) | 0 | 0 | 0 | 0,5 | 1 |
 | Ayrı dolgu rengi / degradesi | 17 | 18 | 19 | 20,5 | 24 |
+| Kenarlarda eğri payı | 0,718 | 0,732 | 0,765 | 0,776 | 0,786 |
 | Degradeli dolgu oranı | 0,391 | 0,582 | 0,6 | 0,681 | 0,787 |
 | Dairesel degrade sayısı | 0 | 0 | 4 | 4,5 | 5 |
 | Degradelerde 2 duraklı oranı | 0,645 | 0,876 | 0,917 | 0,955 | 1 |
@@ -82,6 +88,9 @@ Figürler: f1/1180, f1/1861, f1/1862, f1/1863, f1/1864, f1/1881, f2/2800
 | Çok doygun piksel oranı (S>0,85, V>0,6) | 0 | 0,007 | 0,015 | 0,125 | 0,179 |
 | Geniş alanların doygunluğu (alanı ≥%5 renkler, alan ağırlıklı) | 0 | 0,126 | 0,281 | 0,403 | 0,583 |
 | En doygun geniş alan (alanı ≥%5) | 0 | 0,523 | 0,7 | 0,89 | 1 |
+| Doygun renklerin (S>0,7, V>0,4) toplam alanı | 0 | 0,021 | 0,042 | 0,218 | 0,299 |
+| Doygun renk ailesi sayısı (30°'lik ton dilimi, alanı ≥%2) | 0 | 0,5 | 1 | 1 | 1 |
+| Saf ana renk alanı (S≥0,95, V≥0,95) | 0 | 0 | 0,003 | 0,031 | 0,155 |
 
 Doğrusal degrade yönleri (açıktan koyuya, toplam 157): sağa koyulaşır: 67 (%43), aşağı koyulaşır: 42 (%27), yukarı koyulaşır: 26 (%17), sola koyulaşır: 22 (%14).
 
@@ -119,6 +128,7 @@ Figürler: f1/208, f1/209, f1/210, f1/211, f1/212, f1/213, f1/214, f2/443, f2/44
 | Kontur (çizgi) sayısı | 0 | 0 | 0 | 0,75 | 2 |
 | En kalın kontur (çizim birimi) | 0 | 0 | 0 | 0,75 | 1 |
 | Ayrı dolgu rengi / degradesi | 11 | 13 | 13,5 | 14,75 | 26 |
+| Kenarlarda eğri payı | 0,492 | 0,537 | 0,595 | 0,666 | 0,756 |
 | Degradeli dolgu oranı | 0,154 | 0,261 | 0,333 | 0,351 | 0,562 |
 | Dairesel degrade sayısı | 0 | 0 | 0 | 0 | 2 |
 | Degradelerde 2 duraklı oranı | 0,6 | 1 | 1 | 1 | 1 |
@@ -129,6 +139,9 @@ Figürler: f1/208, f1/209, f1/210, f1/211, f1/212, f1/213, f1/214, f2/443, f2/44
 | Çok doygun piksel oranı (S>0,85, V>0,6) | 0 | 0 | 0,015 | 0,116 | 0,328 |
 | Geniş alanların doygunluğu (alanı ≥%5 renkler, alan ağırlıklı) | 0,035 | 0,318 | 0,356 | 0,433 | 0,632 |
 | En doygun geniş alan (alanı ≥%5) | 0,4 | 0,424 | 0,591 | 0,979 | 1 |
+| Doygun renklerin (S>0,7, V>0,4) toplam alanı | 0 | 0,006 | 0,05 | 0,182 | 0,502 |
+| Doygun renk ailesi sayısı (30°'lik ton dilimi, alanı ≥%2) | 0 | 0 | 1 | 1,75 | 2 |
+| Saf ana renk alanı (S≥0,95, V≥0,95) | 0 | 0 | 0 | 0 | 0,106 |
 
 Doğrusal degrade yönleri (açıktan koyuya, toplam 54): sağa koyulaşır: 20 (%37), sola koyulaşır: 15 (%28), aşağı koyulaşır: 12 (%22), yukarı koyulaşır: 7 (%13).
 
@@ -159,6 +172,7 @@ Figürler: f1/hat-piyadesi-mizrakci, f1/kervan-muhafizi, f1/koylu-yumruk, f1/lej
 | Kontur (çizgi) sayısı | 1 | 1 | 2 | 3 | 3 |
 | En kalın kontur (çizim birimi) | 0,999 | 0,999 | 1 | 1 | 1 |
 | Ayrı dolgu rengi / degradesi | 11 | 18,25 | 22,5 | 30,5 | 35 |
+| Kenarlarda eğri payı | 0,547 | 0,591 | 0,602 | 0,616 | 0,674 |
 | Degradeli dolgu oranı | 0 | 0 | 0 | 0 | 0 |
 | Dairesel degrade sayısı | 0 | 0 | 0 | 0 | 0 |
 | Ortalama doygunluk (opak piksel) | 0,071 | 0,216 | 0,466 | 0,53 | 0,718 |
@@ -166,6 +180,9 @@ Figürler: f1/hat-piyadesi-mizrakci, f1/kervan-muhafizi, f1/koylu-yumruk, f1/lej
 | Çok doygun piksel oranı (S>0,85, V>0,6) | 0 | 0,024 | 0,032 | 0,04 | 0,391 |
 | Geniş alanların doygunluğu (alanı ≥%5 renkler, alan ağırlıklı) | 0,029 | 0,186 | 0,455 | 0,521 | 0,671 |
 | En doygun geniş alan (alanı ≥%5) | 0,424 | 0,457 | 0,835 | 1 | 1 |
+| Doygun renklerin (S>0,7, V>0,4) toplam alanı | 0,005 | 0,046 | 0,109 | 0,276 | 0,619 |
+| Doygun renk ailesi sayısı (30°'lik ton dilimi, alanı ≥%2) | 0 | 1 | 1 | 2 | 3 |
+| Saf ana renk alanı (S≥0,95, V≥0,95) | 0 | 0 | 0,002 | 0,009 | 0,114 |
 
 Figür başına:
 

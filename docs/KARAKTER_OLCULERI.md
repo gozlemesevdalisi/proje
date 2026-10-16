@@ -1,6 +1,6 @@
 # Karakter ölçüleri (esin kaynağından)
 
-Bu sayfa `tools/referans/olc.py` ile **otomatik üretilir**; elle düzenlenmez. Esin kaynağı iki
+Bu sayfa `araclar/olcum/olc.py` ile **otomatik üretilir**; elle düzenlenmez. Esin kaynağı iki
 oyunun savaş kuklaları, oyunun kendi kodundaki formüllerle (ulus, cinsiyet, zırh, miğfer, silah,
 duruş) birleştirildi ve parça parça ölçüldü. Esinin çizimleri depoya girmez; yalnızca bu sayılar.
 

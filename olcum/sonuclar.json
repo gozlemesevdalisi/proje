@@ -36,6 +36,14 @@
      "en_buyuk": 32,
      "sayi": 11
     },
+    "egri_orani": {
+     "en_kucuk": 0.591,
+     "ceyrek_1": 0.615,
+     "ortanca": 0.6835,
+     "ceyrek_3": 0.7084,
+     "en_buyuk": 0.7486,
+     "sayi": 11
+    },
     "degrade_orani": {
      "en_kucuk": 0.2381,
      "ceyrek_1": 0.2989,
@@ -115,6 +123,30 @@
      "ceyrek_3": 0.993,
      "en_buyuk": 1.0,
      "sayi": 11
+    },
+    "doygun_alan": {
+     "en_kucuk": 0.0,
+     "ceyrek_1": 0.0325,
+     "ortanca": 0.0459,
+     "ceyrek_3": 0.3093,
+     "en_buyuk": 0.4631,
+     "sayi": 11
+    },
+    "doygun_aile": {
+     "en_kucuk": 0,
+     "ceyrek_1": 1.0,
+     "ortanca": 1,
+     "ceyrek_3": 2.5,
+     "en_buyuk": 3,
+     "sayi": 11
+    },
+    "saf_ana_renk_alani": {
+     "en_kucuk": 0.0,
+     "ceyrek_1": 0.0,
+     "ortanca": 0.0,
+     "ceyrek_3": 0.0036,
+     "en_buyuk": 0.0941,
+     "sayi": 11
     }
    },
    "degrade_yonleri_toplam": {
@@ -137,6 +169,7 @@
      "kontur": 0,
      "en_kalin_kontur": 0,
      "palet_boyu": 24,
+     "egri_orani": 0.6176,
      "degrade_orani": 0.3478,
      "dairesel_degrade": 0,
      "iki_durakli_orani": 0.875,
@@ -147,6 +180,9 @@
      "cok_doygun_orani": 0.0119,
      "genis_alan_doygunlugu": 0.1138,
      "en_doygun_genis_alan": 0.6694,
+     "doygun_alan": 0.0121,
+     "doygun_aile": 0,
+     "saf_ana_renk_alani": 0.0,
      "degrade_yonleri": {
       "aşağı koyulaşır": 6,
       "sağa koyulaşır": 5,
@@ -283,6 +319,7 @@
      "kontur": 1,
      "en_kalin_kontur": 1.0,
      "palet_boyu": 19,
+     "egri_orani": 0.6077,
      "degrade_orani": 0.5185,
      "dairesel_degrade": 0,
      "iki_durakli_orani": 1.0,
@@ -293,6 +330,9 @@
      "cok_doygun_orani": 0.0,
      "genis_alan_doygunlugu": 0.0525,
      "en_doygun_genis_alan": 0.4,
+     "doygun_alan": 0.0421,
+     "doygun_aile": 1,
+     "saf_ana_renk_alani": 0.0,
      "degrade_yonleri": {
       "aşağı koyulaşır": 8,
       "sağa koyulaşır": 4,
@@ -409,6 +449,7 @@
      "kontur": 1,
      "en_kalin_kontur": 1.0,
      "palet_boyu": 26,
+     "egri_orani": 0.6124,
      "degrade_orani": 0.3548,
      "dairesel_degrade": 0,
      "iki_durakli_orani": 1.0,
@@ -419,6 +460,9 @@
      "cok_doygun_orani": 0.1426,
      "genis_alan_doygunlugu": 0.516,
      "en_doygun_genis_alan": 0.994,
+     "doygun_alan": 0.2435,
+     "doygun_aile": 3,
+     "saf_ana_renk_alani": 0.0175,
      "degrade_yonleri": {
       "sağa koyulaşır": 10,
       "sola koyulaşır": 1
@@ -562,6 +606,7 @@
      "kontur": 0,
      "en_kalin_kontur": 0,
      "palet_boyu": 19,
+     "egri_orani": 0.7059,
      "degrade_orani": 0.2381,
      "dairesel_degrade": 0,
      "iki_durakli_orani": 1.0,
@@ -572,6 +617,9 @@
      "cok_doygun_orani": 0.0448,
      "genis_alan_doygunlugu": 0.4573,
      "en_doygun_genis_alan": 0.4923,
+     "doygun_alan": 0.0459,
+     "doygun_aile": 1,
+     "saf_ana_renk_alani": 0.0,
      "degrade_yonleri": {
       "sağa koyulaşır": 3,
       "sola koyulaşır": 2
@@ -687,6 +735,7 @@
      "kontur": 1,
      "en_kalin_kontur": 1.0,
      "palet_boyu": 19,
+     "egri_orani": 0.6875,
      "degrade_orani": 0.5625,
      "dairesel_degrade": 0,
      "iki_durakli_orani": 1.0,
@@ -697,6 +746,9 @@
      "cok_doygun_orani": 0.2509,
      "genis_alan_doygunlugu": 0.7088,
      "en_doygun_genis_alan": 0.9921,
+     "doygun_alan": 0.4631,
+     "doygun_aile": 3,
+     "saf_ana_renk_alani": 0.0015,
      "degrade_yonleri": {
       "aşağı koyulaşır": 3,
       "sola koyulaşır": 11,
@@ -813,6 +865,7 @@
      "kontur": 2,
      "en_kalin_kontur": 1.0,
      "palet_boyu": 20,
+     "egri_orani": 0.6835,
      "degrade_orani": 0.4375,
      "dairesel_degrade": 0,
      "iki_durakli_orani": 1.0,
@@ -823,6 +876,9 @@
      "cok_doygun_orani": 0.0522,
      "genis_alan_doygunlugu": 0.1968,
      "en_doygun_genis_alan": 0.9948,
+     "doygun_alan": 0.0537,
+     "doygun_aile": 1,
+     "saf_ana_renk_alani": 0.0,
      "degrade_yonleri": {
       "aşağı koyulaşır": 1,
       "sağa koyulaşır": 7,
@@ -943,6 +999,7 @@
      "kontur": 1,
      "en_kalin_kontur": 1.0,
      "palet_boyu": 27,
+     "egri_orani": 0.675,
      "degrade_orani": 0.5161,
      "dairesel_degrade": 0,
      "iki_durakli_orani": 1.0,
@@ -953,6 +1010,9 @@
      "cok_doygun_orani": 0.1767,
      "genis_alan_doygunlugu": 0.7004,
      "en_doygun_genis_alan": 1.0,
+     "doygun_alan": 0.4129,
+     "doygun_aile": 3,
+     "saf_ana_renk_alani": 0.0056,
      "degrade_yonleri": {
       "sağa koyulaşır": 9,
       "sola koyulaşır": 7
@@ -1100,6 +1160,7 @@
      "kontur": 0,
      "en_kalin_kontur": 0,
      "palet_boyu": 13,
+     "egri_orani": 0.591,
      "degrade_orani": 0.25,
      "dairesel_degrade": 0,
      "iki_durakli_orani": 1.0,
@@ -1110,6 +1171,9 @@
      "cok_doygun_orani": 0.0,
      "genis_alan_doygunlugu": 0.0,
      "en_doygun_genis_alan": 0.0,
+     "doygun_alan": 0.0,
+     "doygun_aile": 0,
+     "saf_ana_renk_alani": 0.0,
      "degrade_yonleri": {
       "aşağı koyulaşır": 4,
       "sola koyulaşır": 3
@@ -1201,6 +1265,7 @@
      "kontur": 1,
      "en_kalin_kontur": 1.0,
      "palet_boyu": 28,
+     "egri_orani": 0.7486,
      "degrade_orani": 0.2432,
      "dairesel_degrade": 0,
      "iki_durakli_orani": 1.0,
@@ -1211,6 +1276,9 @@
      "cok_doygun_orani": 0.0084,
      "genis_alan_doygunlugu": 0.3938,
      "en_doygun_genis_alan": 0.4907,
+     "doygun_alan": 0.0454,
+     "doygun_aile": 1,
+     "saf_ana_renk_alani": 0.0,
      "degrade_yonleri": {
       "aşağı koyulaşır": 1,
       "sağa koyulaşır": 1,
@@ -1363,6 +1431,7 @@
      "kontur": 4,
      "en_kalin_kontur": 1.0,
      "palet_boyu": 32,
+     "egri_orani": 0.7109,
      "degrade_orani": 0.48,
      "dairesel_degrade": 2,
      "iki_durakli_orani": 0.9167,
@@ -1373,6 +1442,9 @@
      "cok_doygun_orani": 0.0067,
      "genis_alan_doygunlugu": 0.2916,
      "en_doygun_genis_alan": 0.4478,
+     "doygun_alan": 0.023,
+     "doygun_aile": 1,
+     "saf_ana_renk_alani": 0.0,
      "degrade_yonleri": {
       "aşağı koyulaşır": 7,
       "sağa koyulaşır": 6,
@@ -1542,6 +1614,7 @@
      "kontur": 0,
      "en_kalin_kontur": 0,
      "palet_boyu": 18,
+     "egri_orani": 0.7361,
      "degrade_orani": 0.4054,
      "dairesel_degrade": 0,
      "iki_durakli_orani": 1.0,
@@ -1552,6 +1625,9 @@
      "cok_doygun_orani": 0.3183,
      "genis_alan_doygunlugu": 0.5919,
      "en_doygun_genis_alan": 0.9377,
+     "doygun_alan": 0.375,
+     "doygun_aile": 2,
+     "saf_ana_renk_alani": 0.0941,
      "degrade_yonleri": {
       "aşağı koyulaşır": 2,
       "sağa koyulaşır": 6,
@@ -1672,6 +1748,7 @@
       "diz_boy": 0.7665,
       "el_boy": 0.1015,
       "el_yuz": 0.8333,
+      "asimetri": 3.787,
       "silah_acisi": 56.5237,
       "sap_elden_gecer": true
      },
@@ -1684,6 +1761,7 @@
       "diz_boy": 0.6935,
       "el_boy": 0.0905,
       "el_yuz": 0.6923,
+      "asimetri": 14.4247,
       "silah_acisi": 21.9824,
       "sap_elden_gecer": true
      },
@@ -1696,6 +1774,7 @@
       "diz_boy": 0.7302,
       "el_boy": 0.0741,
       "el_yuz": 0.6087,
+      "asimetri": 14.7255,
       "silah_acisi": 70.3462,
       "sap_elden_gecer": true
      },
@@ -1708,6 +1787,7 @@
       "diz_boy": 0.7186,
       "el_boy": 0.0905,
       "el_yuz": 0.6923,
+      "asimetri": 7.8876,
       "silah_acisi": 14.1986,
       "sap_elden_gecer": true
      },
@@ -1720,6 +1800,7 @@
       "diz_boy": 0.7068,
       "el_boy": 0.0785,
       "el_yuz": 0.5769,
+      "asimetri": 8.9578,
       "silah_acisi": 70.4269,
       "sap_elden_gecer": true
      },
@@ -1732,6 +1813,7 @@
       "diz_boy": 0.7596,
       "el_boy": 0.0765,
       "el_yuz": 0.6667,
+      "asimetri": 13.8369,
       "silah_acisi": 39.9869,
       "sap_elden_gecer": true
      },
@@ -1744,6 +1826,7 @@
       "diz_boy": 0.7085,
       "el_boy": 0.0704,
       "el_yuz": 0.5833,
+      "asimetri": 27.7722,
       "silah_acisi": 38.9041,
       "sap_elden_gecer": true
      },
@@ -1756,6 +1839,7 @@
       "diz_boy": 0.6988,
       "el_boy": 0.0904,
       "el_yuz": 0.6,
+      "asimetri": 15.4814,
       "silah_acisi": 82.4054,
       "sap_elden_gecer": true
      },
@@ -1768,6 +1852,7 @@
       "diz_boy": 0.7688,
       "el_boy": 0.1106,
       "el_yuz": 0.7857,
+      "asimetri": 19.9853,
       "silah_acisi": 61.3895,
       "sap_elden_gecer": true
      },
@@ -1780,6 +1865,7 @@
       "diz_boy": 0.7292,
       "el_boy": 0.0833,
       "el_yuz": 0.5,
+      "asimetri": 10.8147,
       "silah_acisi": 47.8156,
       "sap_elden_gecer": true
      },
@@ -1792,11 +1878,20 @@
       "diz_boy": 0.7588,
       "el_boy": 0.0704,
       "el_yuz": 0.5833,
+      "asimetri": 37.0337,
       "silah_acisi": 89.1815,
       "sap_elden_gecer": true
      }
     },
     "dagilim": {
+     "asimetri": {
+      "en_kucuk": 3.787,
+      "ceyrek_1": 9.8863,
+      "ortanca": 14.4247,
+      "ceyrek_3": 17.7334,
+      "en_buyuk": 37.0337,
+      "sayi": 11
+     },
      "bacak_boy": {
       "en_kucuk": 0.3655,
       "ceyrek_1": 0.4032,
@@ -1907,6 +2002,14 @@
      "en_buyuk": 24,
      "sayi": 7
     },
+    "egri_orani": {
+     "en_kucuk": 0.7179,
+     "ceyrek_1": 0.7317,
+     "ortanca": 0.7649,
+     "ceyrek_3": 0.7761,
+     "en_buyuk": 0.7862,
+     "sayi": 7
+    },
     "degrade_orani": {
      "en_kucuk": 0.3913,
      "ceyrek_1": 0.5821,
@@ -1986,6 +2089,30 @@
      "ceyrek_3": 0.8897,
      "en_buyuk": 1.0,
      "sayi": 7
+    },
+    "doygun_alan": {
+     "en_kucuk": 0.0,
+     "ceyrek_1": 0.021,
+     "ortanca": 0.0422,
+     "ceyrek_3": 0.218,
+     "en_buyuk": 0.2993,
+     "sayi": 7
+    },
+    "doygun_aile": {
+     "en_kucuk": 0,
+     "ceyrek_1": 0.5,
+     "ortanca": 1,
+     "ceyrek_3": 1.0,
+     "en_buyuk": 1,
+     "sayi": 7
+    },
+    "saf_ana_renk_alani": {
+     "en_kucuk": 0.0,
+     "ceyrek_1": 0.0,
+     "ortanca": 0.0029,
+     "ceyrek_3": 0.0311,
+     "en_buyuk": 0.1555,
+     "sayi": 7
     }
    },
    "degrade_yonleri_toplam": {
@@ -2008,6 +2135,7 @@
      "kontur": 1,
      "en_kalin_kontur": 1.0,
      "palet_boyu": 18,
+     "egri_orani": 0.7179,
      "degrade_orani": 0.3913,
      "dairesel_degrade": 0,
      "iki_durakli_orani": 0.8889,
@@ -2018,6 +2146,9 @@
      "cok_doygun_orani": 0.0,
      "genis_alan_doygunlugu": 0.1766,
      "en_doygun_genis_alan": 0.7857,
+     "doygun_alan": 0.0,
+     "doygun_aile": 0,
+     "saf_ana_renk_alani": 0.0,
      "degrade_yonleri": {
       "aşağı koyulaşır": 2,
       "sağa koyulaşır": 4,
@@ -2130,6 +2261,7 @@
      "kontur": 0,
      "en_kalin_kontur": 0,
      "palet_boyu": 24,
+     "egri_orani": 0.7292,
      "degrade_orani": 0.625,
      "dairesel_degrade": 5,
      "iki_durakli_orani": 1.0,
@@ -2140,6 +2272,9 @@
      "cok_doygun_orani": 0.179,
      "genis_alan_doygunlugu": 0.4305,
      "en_doygun_genis_alan": 1.0,
+     "doygun_alan": 0.184,
+     "doygun_aile": 1,
+     "saf_ana_renk_alani": 0.0199,
      "degrade_yonleri": {
       "aşağı koyulaşır": 6,
       "sağa koyulaşır": 12,
@@ -2277,6 +2412,7 @@
      "kontur": 0,
      "en_kalin_kontur": 0,
      "palet_boyu": 20,
+     "egri_orani": 0.7342,
      "degrade_orani": 0.6,
      "dairesel_degrade": 4,
      "iki_durakli_orani": 0.963,
@@ -2287,6 +2423,9 @@
      "cok_doygun_orani": 0.0146,
      "genis_alan_doygunlugu": 0.0,
      "en_doygun_genis_alan": 0.0,
+     "doygun_alan": 0.0353,
+     "doygun_aile": 1,
+     "saf_ana_renk_alani": 0.0,
      "degrade_yonleri": {
       "aşağı koyulaşır": 12,
       "sağa koyulaşır": 10,
@@ -2407,6 +2546,7 @@
      "kontur": 1,
      "en_kalin_kontur": 1.0,
      "palet_boyu": 18,
+     "egri_orani": 0.7829,
      "degrade_orani": 0.5854,
      "dairesel_degrade": 4,
      "iki_durakli_orani": 0.9167,
@@ -2417,6 +2557,9 @@
      "cok_doygun_orani": 0.0878,
      "genis_alan_doygunlugu": 0.5828,
      "en_doygun_genis_alan": 0.7,
+     "doygun_alan": 0.2993,
+     "doygun_aile": 1,
+     "saf_ana_renk_alani": 0.1555,
      "degrade_yonleri": {
       "aşağı koyulaşır": 8,
       "sağa koyulaşır": 10,
@@ -2529,6 +2672,7 @@
      "kontur": 0,
      "en_kalin_kontur": 0,
      "palet_boyu": 17,
+     "egri_orani": 0.7862,
      "degrade_orani": 0.7872,
      "dairesel_degrade": 5,
      "iki_durakli_orani": 0.9459,
@@ -2539,6 +2683,9 @@
      "cok_doygun_orani": 0.008,
      "genis_alan_doygunlugu": 0.075,
      "en_doygun_genis_alan": 0.7,
+     "doygun_alan": 0.0422,
+     "doygun_aile": 1,
+     "saf_ana_renk_alani": 0.0422,
      "degrade_yonleri": {
       "aşağı koyulaşır": 3,
       "sağa koyulaşır": 6,
@@ -2648,6 +2795,7 @@
      "kontur": 0,
      "en_kalin_kontur": 0,
      "palet_boyu": 19,
+     "egri_orani": 0.7692,
      "degrade_orani": 0.7381,
      "dairesel_degrade": 0,
      "iki_durakli_orani": 0.6452,
@@ -2658,6 +2806,9 @@
      "cok_doygun_orani": 0.1617,
      "genis_alan_doygunlugu": 0.3756,
      "en_doygun_genis_alan": 0.9936,
+     "doygun_alan": 0.2521,
+     "doygun_aile": 1,
+     "saf_ana_renk_alani": 0.0029,
      "degrade_yonleri": {
       "aşağı koyulaşır": 3,
       "sağa koyulaşır": 19,
@@ -2775,6 +2926,7 @@
      "kontur": 0,
      "en_kalin_kontur": 0,
      "palet_boyu": 21,
+     "egri_orani": 0.7649,
      "degrade_orani": 0.5789,
      "dairesel_degrade": 0,
      "iki_durakli_orani": 0.8636,
@@ -2785,6 +2937,9 @@
      "cok_doygun_orani": 0.0066,
      "genis_alan_doygunlugu": 0.2814,
      "en_doygun_genis_alan": 0.3457,
+     "doygun_alan": 0.0067,
+     "doygun_aile": 0,
+     "saf_ana_renk_alani": 0.0,
      "degrade_yonleri": {
       "aşağı koyulaşır": 8,
       "sağa koyulaşır": 6,
@@ -3012,6 +3167,14 @@
      "en_buyuk": 26,
      "sayi": 10
     },
+    "egri_orani": {
+     "en_kucuk": 0.4916,
+     "ceyrek_1": 0.5366,
+     "ortanca": 0.5953,
+     "ceyrek_3": 0.6663,
+     "en_buyuk": 0.7557,
+     "sayi": 10
+    },
     "degrade_orani": {
      "en_kucuk": 0.1538,
      "ceyrek_1": 0.261,
@@ -3091,6 +3254,30 @@
      "ceyrek_3": 0.9788,
      "en_buyuk": 1.0,
      "sayi": 10
+    },
+    "doygun_alan": {
+     "en_kucuk": 0.0,
+     "ceyrek_1": 0.0061,
+     "ortanca": 0.05,
+     "ceyrek_3": 0.1822,
+     "en_buyuk": 0.5018,
+     "sayi": 10
+    },
+    "doygun_aile": {
+     "en_kucuk": 0,
+     "ceyrek_1": 0.0,
+     "ortanca": 1.0,
+     "ceyrek_3": 1.75,
+     "en_buyuk": 2,
+     "sayi": 10
+    },
+    "saf_ana_renk_alani": {
+     "en_kucuk": 0.0,
+     "ceyrek_1": 0.0,
+     "ortanca": 0.0,
+     "ceyrek_3": 0.0,
+     "en_buyuk": 0.1061,
+     "sayi": 10
     }
    },
    "degrade_yonleri_toplam": {
@@ -3113,6 +3300,7 @@
      "kontur": 0,
      "en_kalin_kontur": 0,
      "palet_boyu": 14,
+     "egri_orani": 0.642,
      "degrade_orani": 0.2941,
      "dairesel_degrade": 0,
      "iki_durakli_orani": 1.0,
@@ -3123,6 +3311,9 @@
      "cok_doygun_orani": 0.3278,
      "genis_alan_doygunlugu": 0.6321,
      "en_doygun_genis_alan": 0.9306,
+     "doygun_alan": 0.5018,
+     "doygun_aile": 2,
+     "saf_ana_renk_alani": 0.0343,
      "degrade_yonleri": {
       "aşağı koyulaşır": 2,
       "sola koyulaşır": 2,
@@ -3219,6 +3410,7 @@
      "kontur": 1,
      "en_kalin_kontur": 1.0,
      "palet_boyu": 13,
+     "egri_orani": 0.6744,
      "degrade_orani": 0.5625,
      "dairesel_degrade": 0,
      "iki_durakli_orani": 1.0,
@@ -3229,6 +3421,9 @@
      "cok_doygun_orani": 0.0,
      "genis_alan_doygunlugu": 0.5036,
      "en_doygun_genis_alan": 0.9963,
+     "doygun_alan": 0.2626,
+     "doygun_aile": 2,
+     "saf_ana_renk_alani": 0.0,
      "degrade_yonleri": {
       "sağa koyulaşır": 6,
       "sola koyulaşır": 3
@@ -3320,6 +3515,7 @@
      "kontur": 0,
      "en_kalin_kontur": 0,
      "palet_boyu": 14,
+     "egri_orani": 0.5376,
      "degrade_orani": 0.3333,
      "dairesel_degrade": 0,
      "iki_durakli_orani": 0.6,
@@ -3330,6 +3526,9 @@
      "cok_doygun_orani": 0.0465,
      "genis_alan_doygunlugu": 0.1567,
      "en_doygun_genis_alan": 0.6694,
+     "doygun_alan": 0.047,
+     "doygun_aile": 1,
+     "saf_ana_renk_alani": 0.0,
      "degrade_yonleri": {
       "sağa koyulaşır": 3,
       "sola koyulaşır": 2
@@ -3425,6 +3624,7 @@
      "kontur": 0,
      "en_kalin_kontur": 0,
      "palet_boyu": 13,
+     "egri_orani": 0.7557,
      "degrade_orani": 0.3571,
      "dairesel_degrade": 0,
      "iki_durakli_orani": 1.0,
@@ -3435,6 +3635,9 @@
      "cok_doygun_orani": 0.1395,
      "genis_alan_doygunlugu": 0.3305,
      "en_doygun_genis_alan": 0.9948,
+     "doygun_alan": 0.1421,
+     "doygun_aile": 1,
+     "saf_ana_renk_alani": 0.0,
      "degrade_yonleri": {
       "aşağı koyulaşır": 1,
       "sağa koyulaşır": 3,
@@ -3527,6 +3730,7 @@
      "kontur": 0,
      "en_kalin_kontur": 0,
      "palet_boyu": 13,
+     "egri_orani": 0.6257,
      "degrade_orani": 0.1538,
      "dairesel_degrade": 0,
      "iki_durakli_orani": 1.0,
@@ -3537,6 +3741,9 @@
      "cok_doygun_orani": 0.0,
      "genis_alan_doygunlugu": 0.4386,
      "en_doygun_genis_alan": 0.5125,
+     "doygun_alan": 0.0006,
+     "doygun_aile": 0,
+     "saf_ana_renk_alani": 0.0,
      "degrade_yonleri": {
       "sola koyulaşır": 2
      },
@@ -3627,6 +3834,7 @@
      "kontur": 1,
      "en_kalin_kontur": 1.0,
      "palet_boyu": 11,
+     "egri_orani": 0.7517,
      "degrade_orani": 0.25,
      "dairesel_degrade": 0,
      "iki_durakli_orani": 1.0,
@@ -3637,6 +3845,9 @@
      "cok_doygun_orani": 0.0,
      "genis_alan_doygunlugu": 0.3309,
      "en_doygun_genis_alan": 0.4,
+     "doygun_alan": 0.0026,
+     "doygun_aile": 0,
+     "saf_ana_renk_alani": 0.0,
      "degrade_yonleri": {
       "sağa koyulaşır": 3
      },
@@ -3719,6 +3930,7 @@
      "kontur": 0,
      "en_kalin_kontur": 0,
      "palet_boyu": 11,
+     "egri_orani": 0.5649,
      "degrade_orani": 0.3333,
      "dairesel_degrade": 0,
      "iki_durakli_orani": 1.0,
@@ -3729,6 +3941,9 @@
      "cok_doygun_orani": 0.0,
      "genis_alan_doygunlugu": 0.0345,
      "en_doygun_genis_alan": 0.4,
+     "doygun_alan": 0.0,
+     "doygun_aile": 0,
+     "saf_ana_renk_alani": 0.0,
      "degrade_yonleri": {
       "aşağı koyulaşır": 4,
       "sola koyulaşır": 1
@@ -3812,6 +4027,7 @@
      "kontur": 2,
      "en_kalin_kontur": 1.0,
      "palet_boyu": 26,
+     "egri_orani": 0.4916,
      "degrade_orani": 0.3871,
      "dairesel_degrade": 2,
      "iki_durakli_orani": 0.8333,
@@ -3822,6 +4038,9 @@
      "cok_doygun_orani": 0.0144,
      "genis_alan_doygunlugu": 0.3134,
      "en_doygun_genis_alan": 0.4022,
+     "doygun_alan": 0.053,
+     "doygun_aile": 1,
+     "saf_ana_renk_alani": 0.0,
      "degrade_yonleri": {
       "aşağı koyulaşır": 2,
       "sağa koyulaşır": 3,
@@ -3966,6 +4185,7 @@
      "kontur": 0,
      "en_kalin_kontur": 0,
      "palet_boyu": 20,
+     "egri_orani": 0.5,
      "degrade_orani": 0.1818,
      "dairesel_degrade": 0,
      "iki_durakli_orani": 1.0,
@@ -3976,6 +4196,9 @@
      "cok_doygun_orani": 0.0158,
      "genis_alan_doygunlugu": 0.3821,
      "en_doygun_genis_alan": 0.4907,
+     "doygun_alan": 0.0168,
+     "doygun_aile": 0,
+     "saf_ana_renk_alani": 0.0,
      "degrade_yonleri": {
       "aşağı koyulaşır": 1,
       "sola koyulaşır": 3
@@ -4095,6 +4318,7 @@
      "kontur": 0,
      "en_kalin_kontur": 0,
      "palet_boyu": 15,
+     "egri_orani": 0.5363,
      "degrade_orani": 0.3333,
      "dairesel_degrade": 0,
      "iki_durakli_orani": 1.0,
@@ -4105,6 +4329,9 @@
      "cok_doygun_orani": 0.1566,
      "genis_alan_doygunlugu": 0.4155,
      "en_doygun_genis_alan": 1.0,
+     "doygun_alan": 0.1956,
+     "doygun_aile": 2,
+     "saf_ana_renk_alani": 0.1061,
      "degrade_yonleri": {
       "aşağı koyulaşır": 2,
       "sağa koyulaşır": 2,
@@ -4238,6 +4465,14 @@
      "en_buyuk": 35,
      "sayi": 18
     },
+    "egri_orani": {
+     "en_kucuk": 0.5474,
+     "ceyrek_1": 0.5911,
+     "ortanca": 0.6016,
+     "ceyrek_3": 0.6163,
+     "en_buyuk": 0.6741,
+     "sayi": 18
+    },
     "degrade_orani": {
      "en_kucuk": 0.0,
      "ceyrek_1": 0.0,
@@ -4296,6 +4531,30 @@
      "ceyrek_3": 1.0,
      "en_buyuk": 1.0,
      "sayi": 18
+    },
+    "doygun_alan": {
+     "en_kucuk": 0.005,
+     "ceyrek_1": 0.0456,
+     "ortanca": 0.1087,
+     "ceyrek_3": 0.2755,
+     "en_buyuk": 0.6187,
+     "sayi": 18
+    },
+    "doygun_aile": {
+     "en_kucuk": 0,
+     "ceyrek_1": 1.0,
+     "ortanca": 1.0,
+     "ceyrek_3": 2.0,
+     "en_buyuk": 3,
+     "sayi": 18
+    },
+    "saf_ana_renk_alani": {
+     "en_kucuk": 0.0,
+     "ceyrek_1": 0.0,
+     "ortanca": 0.0016,
+     "ceyrek_3": 0.0092,
+     "en_buyuk": 0.1144,
+     "sayi": 18
     }
    },
    "degrade_yonleri_toplam": {},
@@ -4306,6 +4565,7 @@
      "kontur": 3,
      "en_kalin_kontur": 1.0,
      "palet_boyu": 24,
+     "egri_orani": 0.6151,
      "degrade_orani": 0.0,
      "dairesel_degrade": 0,
      "iki_durakli_orani": null,
@@ -4316,6 +4576,9 @@
      "cok_doygun_orani": 0.0184,
      "genis_alan_doygunlugu": 0.482,
      "en_doygun_genis_alan": 1.0,
+     "doygun_alan": 0.3989,
+     "doygun_aile": 2,
+     "saf_ana_renk_alani": 0.0089,
      "degrade_yonleri": {},
      "palet": [
       [
@@ -4448,6 +4711,7 @@
      "kontur": 3,
      "en_kalin_kontur": 1.0,
      "palet_boyu": 20,
+     "egri_orani": 0.5474,
      "degrade_orani": 0.0,
      "dairesel_degrade": 0,
      "iki_durakli_orani": null,
@@ -4458,6 +4722,9 @@
      "cok_doygun_orani": 0.0327,
      "genis_alan_doygunlugu": 0.5603,
      "en_doygun_genis_alan": 1.0,
+     "doygun_alan": 0.1901,
+     "doygun_aile": 2,
+     "saf_ana_renk_alani": 0.0045,
      "degrade_yonleri": {},
      "palet": [
       [
@@ -4574,6 +4841,7 @@
      "kontur": 1,
      "en_kalin_kontur": 0.999,
      "palet_boyu": 11,
+     "egri_orani": 0.5962,
      "degrade_orani": 0.0,
      "dairesel_degrade": 0,
      "iki_durakli_orani": null,
@@ -4584,6 +4852,9 @@
      "cok_doygun_orani": 0.0316,
      "genis_alan_doygunlugu": 0.0382,
      "en_doygun_genis_alan": 0.4239,
+     "doygun_alan": 0.0337,
+     "doygun_aile": 1,
+     "saf_ana_renk_alani": 0.0,
      "degrade_yonleri": {},
      "palet": [
       [
@@ -4664,6 +4935,7 @@
      "kontur": 3,
      "en_kalin_kontur": 1.0,
      "palet_boyu": 26,
+     "egri_orani": 0.5911,
      "degrade_orani": 0.0,
      "dairesel_degrade": 0,
      "iki_durakli_orani": null,
@@ -4674,6 +4946,9 @@
      "cok_doygun_orani": 0.0599,
      "genis_alan_doygunlugu": 0.6025,
      "en_doygun_genis_alan": 1.0,
+     "doygun_alan": 0.2163,
+     "doygun_aile": 3,
+     "saf_ana_renk_alani": 0.0032,
      "degrade_yonleri": {},
      "palet": [
       [
@@ -4814,6 +5089,7 @@
      "kontur": 2,
      "en_kalin_kontur": 1.0,
      "palet_boyu": 17,
+     "egri_orani": 0.6221,
      "degrade_orani": 0.0,
      "dairesel_degrade": 0,
      "iki_durakli_orani": null,
@@ -4824,6 +5100,9 @@
      "cok_doygun_orani": 0.0341,
      "genis_alan_doygunlugu": 0.1068,
      "en_doygun_genis_alan": 0.6629,
+     "doygun_alan": 0.0367,
+     "doygun_aile": 1,
+     "saf_ana_renk_alani": 0.0,
      "degrade_yonleri": {},
      "palet": [
       [
@@ -4928,6 +5207,7 @@
      "kontur": 2,
      "en_kalin_kontur": 1.0,
      "palet_boyu": 24,
+     "egri_orani": 0.6741,
      "degrade_orani": 0.0,
      "dairesel_degrade": 0,
      "iki_durakli_orani": null,
@@ -4938,6 +5218,9 @@
      "cok_doygun_orani": 0.092,
      "genis_alan_doygunlugu": 0.4443,
      "en_doygun_genis_alan": 0.6694,
+     "doygun_alan": 0.094,
+     "doygun_aile": 1,
+     "saf_ana_renk_alani": 0.0,
      "degrade_yonleri": {},
      "palet": [
       [
@@ -5070,6 +5353,7 @@
      "kontur": 1,
      "en_kalin_kontur": 0.999,
      "palet_boyu": 16,
+     "egri_orani": 0.6069,
      "degrade_orani": 0.0,
      "dairesel_degrade": 0,
      "iki_durakli_orani": null,
@@ -5080,6 +5364,9 @@
      "cok_doygun_orani": 0.0285,
      "genis_alan_doygunlugu": 0.0294,
      "en_doygun_genis_alan": 0.4239,
+     "doygun_alan": 0.0309,
+     "doygun_aile": 1,
+     "saf_ana_renk_alani": 0.0,
      "degrade_yonleri": {},
      "palet": [
       [
@@ -5180,6 +5467,7 @@
      "kontur": 3,
      "en_kalin_kontur": 1.0,
      "palet_boyu": 24,
+     "egri_orani": 0.6167,
      "degrade_orani": 0.0,
      "dairesel_degrade": 0,
      "iki_durakli_orani": null,
@@ -5190,6 +5478,9 @@
      "cok_doygun_orani": 0.3906,
      "genis_alan_doygunlugu": 0.6711,
      "en_doygun_genis_alan": 1.0,
+     "doygun_alan": 0.6187,
+     "doygun_aile": 3,
+     "saf_ana_renk_alani": 0.0209,
      "degrade_yonleri": {},
      "palet": [
       [
@@ -5322,6 +5613,7 @@
      "kontur": 1,
      "en_kalin_kontur": 1.0,
      "palet_boyu": 35,
+     "egri_orani": 0.5951,
      "degrade_orani": 0.0,
      "dairesel_degrade": 0,
      "iki_durakli_orani": null,
@@ -5332,6 +5624,9 @@
      "cok_doygun_orani": 0.0243,
      "genis_alan_doygunlugu": 0.2667,
      "en_doygun_genis_alan": 0.4569,
+     "doygun_alan": 0.0746,
+     "doygun_aile": 1,
+     "saf_ana_renk_alani": 0.0,
      "degrade_yonleri": {},
      "palet": [
       [
@@ -5508,6 +5803,7 @@
      "kontur": 3,
      "en_kalin_kontur": 1.0,
      "palet_boyu": 21,
+     "egri_orani": 0.5912,
      "degrade_orani": 0.0,
      "dairesel_degrade": 0,
      "iki_durakli_orani": null,
@@ -5518,6 +5814,9 @@
      "cok_doygun_orani": 0.0277,
      "genis_alan_doygunlugu": 0.523,
      "en_doygun_genis_alan": 1.0,
+     "doygun_alan": 0.2952,
+     "doygun_aile": 2,
+     "saf_ana_renk_alani": 0.0093,
      "degrade_yonleri": {},
      "palet": [
       [
@@ -5638,6 +5937,7 @@
      "kontur": 1,
      "en_kalin_kontur": 1.0,
      "palet_boyu": 34,
+     "egri_orani": 0.6491,
      "degrade_orani": 0.0,
      "dairesel_degrade": 0,
      "iki_durakli_orani": null,
@@ -5648,6 +5948,9 @@
      "cok_doygun_orani": 0.1144,
      "genis_alan_doygunlugu": 0.5151,
      "en_doygun_genis_alan": 1.0,
+     "doygun_alan": 0.1235,
+     "doygun_aile": 1,
+     "saf_ana_renk_alani": 0.1144,
      "degrade_yonleri": {},
      "palet": [
       [
@@ -5820,6 +6123,7 @@
      "kontur": 2,
      "en_kalin_kontur": 0.999,
      "palet_boyu": 18,
+     "egri_orani": 0.6107,
      "degrade_orani": 0.0,
      "dairesel_degrade": 0,
      "iki_durakli_orani": null,
@@ -5830,6 +6134,9 @@
      "cok_doygun_orani": 0.0412,
      "genis_alan_doygunlugu": 0.0386,
      "en_doygun_genis_alan": 0.4239,
+     "doygun_alan": 0.0442,
+     "doygun_aile": 1,
+     "saf_ana_renk_alani": 0.0,
      "degrade_yonleri": {},
      "palet": [
       [
@@ -5938,6 +6245,7 @@
      "kontur": 3,
      "en_kalin_kontur": 1.0,
      "palet_boyu": 20,
+     "egri_orani": 0.5474,
      "degrade_orani": 0.0,
      "dairesel_degrade": 0,
      "iki_durakli_orani": null,
@@ -5948,6 +6256,9 @@
      "cok_doygun_orani": 0.0365,
      "genis_alan_doygunlugu": 0.5567,
      "en_doygun_genis_alan": 1.0,
+     "doygun_alan": 0.1955,
+     "doygun_aile": 2,
+     "saf_ana_renk_alani": 0.0082,
      "degrade_yonleri": {},
      "palet": [
       [
@@ -6064,6 +6375,7 @@
      "kontur": 1,
      "en_kalin_kontur": 1.0,
      "palet_boyu": 32,
+     "egri_orani": 0.608,
      "degrade_orani": 0.0,
      "dairesel_degrade": 0,
      "iki_durakli_orani": null,
@@ -6074,6 +6386,9 @@
      "cok_doygun_orani": 0.0038,
      "genis_alan_doygunlugu": 0.1591,
      "en_doygun_genis_alan": 0.4569,
+     "doygun_alan": 0.005,
+     "doygun_aile": 0,
+     "saf_ana_renk_alani": 0.0,
      "degrade_yonleri": {},
      "palet": [
       [
@@ -6238,6 +6553,7 @@
      "kontur": 3,
      "en_kalin_kontur": 0.999,
      "palet_boyu": 13,
+     "egri_orani": 0.58,
      "degrade_orani": 0.0,
      "dairesel_degrade": 0,
      "iki_durakli_orani": null,
@@ -6248,6 +6564,9 @@
      "cok_doygun_orani": 0.0368,
      "genis_alan_doygunlugu": 0.4864,
      "en_doygun_genis_alan": 1.0,
+     "doygun_alan": 0.2968,
+     "doygun_aile": 3,
+     "saf_ana_renk_alani": 0.0238,
      "degrade_yonleri": {},
      "palet": [
       [
@@ -6336,6 +6655,7 @@
      "kontur": 1,
      "en_kalin_kontur": 1.0,
      "palet_boyu": 33,
+     "egri_orani": 0.6306,
      "degrade_orani": 0.0,
      "dairesel_degrade": 0,
      "iki_durakli_orani": null,
@@ -6346,6 +6666,9 @@
      "cok_doygun_orani": 0.0,
      "genis_alan_doygunlugu": 0.2681,
      "en_doygun_genis_alan": 0.4569,
+     "doygun_alan": 0.0552,
+     "doygun_aile": 1,
+     "saf_ana_renk_alani": 0.0,
      "degrade_yonleri": {},
      "palet": [
       [
@@ -6514,6 +6837,7 @@
      "kontur": 1,
      "en_kalin_kontur": 0.999,
      "palet_boyu": 33,
+     "egri_orani": 0.5963,
      "degrade_orani": 0.0,
      "dairesel_degrade": 0,
      "iki_durakli_orani": null,
@@ -6524,6 +6848,9 @@
      "cok_doygun_orani": 0.0052,
      "genis_alan_doygunlugu": 0.2834,
      "en_doygun_genis_alan": 0.4569,
+     "doygun_alan": 0.0496,
+     "doygun_aile": 1,
+     "saf_ana_renk_alani": 0.0,
      "degrade_yonleri": {},
      "palet": [
       [
@@ -6692,6 +7019,7 @@
      "kontur": 3,
      "en_kalin_kontur": 0.999,
      "palet_boyu": 19,
+     "egri_orani": 0.567,
      "degrade_orani": 0.0,
      "dairesel_degrade": 0,
      "iki_durakli_orani": null,
@@ -6702,6 +7030,9 @@
      "cok_doygun_orani": 0.0243,
      "genis_alan_doygunlugu": 0.4652,
      "en_doygun_genis_alan": 1.0,
+     "doygun_alan": 0.2982,
+     "doygun_aile": 3,
+     "saf_ana_renk_alani": 0.0112,
      "degrade_yonleri": {},
      "palet": [
       [

@@ -16,15 +16,17 @@ use game::content::EMBEDDED;
 /// Paletin kaynağı: çizim betikleri de aynı dosyayı okur.
 const PALETTE: &str = include_str!("../../../tools/art/palet.txt");
 
-/// Degradedeki en fazla durak sayısı (metal ve silindir parçalar için üç).
+/// Degradedeki en fazla durak sayısı. Esinin kahramanlarında degradelerin %88–100'ü 2 duraklı,
+/// kalanı 3 duraklı (bkz. olcum/sonuclar.md).
 const MAX_STOPS: usize = 3;
-/// Doğrusal degradenin yatay ya da dikey eksenden en fazla sapması (derece).
+/// Doğrusal degradenin yatay ya da dikey eksenden en fazla sapması (derece). Esinde en büyük 14,6°.
 const MAX_GRADIENT_TILT: f32 = 15.0;
-/// Karakterde degradeyle boyanmış şekillerin en fazla oranı.
-const MAX_CHARACTER_GRADIENT_SHARE: f32 = 0.35;
-/// Karakter yollarındaki eğri parça oranının sınırları. Esin kaynağının 18 savaş kuklasında
-/// ölçülen: %56–67, ortanca %60 (bkz. docs/KARAKTER_OLCULERI.md).
-const CHARACTER_CURVE_RATIO: (f32, f32) = (0.50, 0.70);
+/// Karakterde degradeyle boyanmış şekillerin en fazla oranı. Esinin kahramanlarında en büyük %56
+/// (savaş kuklasında 0).
+const MAX_CHARACTER_GRADIENT_SHARE: f32 = 0.56;
+/// Karakter yollarındaki eğri parça oranının sınırları. Esinde ölçülen: savaş kuklası %55–67,
+/// kahraman %59–75 (bkz. olcum/sonuclar.md).
+const CHARACTER_CURVE_RATIO: (f32, f32) = (0.55, 0.75);
 /// Karakterde izin verilen en kalın çizgi (yay kirişi, ip): SVG birimi.
 const MAX_CHARACTER_STROKE: f32 = 1.5;
 /// Manzara katmanında yarı saydam şekillerin en fazla oranı (siyah gölge ve beyaz ışık hariç).
@@ -321,9 +323,9 @@ fn character_curve_ratio_and_gradient_share_are_checked() {
     let p = problems(&poly, Kind::Character, &small_palette());
     assert!(p.iter().any(|s| s.contains("eğri parça oranı %0")), "{p:?}");
 
-    // Yarısı eğri, yarısı düz: kabul.
+    // Üç eğri, iki düz kenar (%60 eğri, esindeki gibi): kabul.
     let mixed = svg(
-        r##"<path d="M0 0 Q50 10 100 0 L100 100 Q50 90 0 100 L0 0 Q-5 50 0 100 Z" fill="#CC0000"/>"##,
+        r##"<path d="M0 0 Q50 10 100 0 L100 100 Q50 90 0 100 Q-5 50 0 10 Z" fill="#CC0000"/>"##,
     );
     assert!(problems(&mixed, Kind::Character, &small_palette()).is_empty());
 

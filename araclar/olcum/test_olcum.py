@@ -141,6 +141,37 @@ class PozOzgunlugu(unittest.TestCase):
         self.assertAlmostEqual(p["bacak"][1][1], 90)
 
 
+class Asimetri(unittest.TestCase):
+    def test_simetrik_figur_sifir(self):
+        self.assertAlmostEqual(olcum.asimetri(olcum.poz_isaretten(figur())), 0, places=6)
+
+    def test_tek_kol_kalkinca_artar(self):
+        p = olcum.poz_isaretten(figur(dirsekler=[[30, 14], [62, 36]]))
+        self.assertGreater(olcum.asimetri(p), 5)
+
+
+class EgriOrani(unittest.TestCase):
+    def test_kenarlar_sayilir(self):
+        el = ET.fromstring('<path d="M0 0 L10 0 Q20 5 10 10 20 15 10 20 L0 20 Z" fill="#000000"/>')
+        self.assertAlmostEqual(olcum.egri_orani([(el, olcum.BIRIM, 1.0)]), 0.5)
+
+    def test_kontur_yolu_sayilmaz(self):
+        el = ET.fromstring('<path d="M0 0 L10 0" fill="none" stroke="#000000"/>')
+        self.assertIsNone(olcum.egri_orani([(el, olcum.BIRIM, 1.0)]))
+
+
+class Doygunluk(unittest.TestCase):
+    def test_degrade_alani_uclara_bolunur(self):
+        self.assertEqual(olcum.renk_payi([["degrade #FF0000→#808080", 0.5], ["#FFFFFF", 0.5]]),
+                         [("#FF0000", 0.25), ("#808080", 0.25), ("#FFFFFF", 0.5)])
+
+    def test_doygun_alan_aile_ve_saf_renk(self):
+        o = olcum.doygunluk_olculeri([["#FF0000", 0.1], ["#CC0000", 0.1], ["#0000CC", 0.01], ["#999999", 0.79]])
+        self.assertAlmostEqual(o["doygun_alan"], 0.21)
+        self.assertEqual(o["doygun_aile"], 1)  # mavinin alanı %2'den az, sayılmaz
+        self.assertAlmostEqual(o["saf_ana_renk_alani"], 0.1)
+
+
 class Rapor(unittest.TestCase):
     def test_dagilim_ceyrekler(self):
         d = olcum.dagilim([1, 2, 3, 4, 5, None])
@@ -160,6 +191,11 @@ class Rapor(unittest.TestCase):
         self.assertIn("| a | 0 | 1 | 2 | 3 | 4 | 2 | GEÇTİ |", md)
         self.assertIn("KALDI", md)
         self.assertIn("Geçen: 1 / 2", md)
+
+    def test_sahibin_siniri_orta_yarinin_yerine_gecer(self):
+        d = {"ceyrek_1": 1, "ceyrek_3": 2.5}
+        self.assertEqual(olcum.gecme_araligi("doygun_aile", d), (0, 1))
+        self.assertEqual(olcum.gecme_araligi("dolgu_grubu", d), (1, 2.5))
 
     def test_sayi_virgullu(self):
         self.assertEqual(olcum.sayi(0.125), "0,125")

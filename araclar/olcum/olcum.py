@@ -192,6 +192,25 @@ def ogeler(yol):
     return kok, out, nesne
 
 
+def egri_orani(liste):
+    """Dolgulu yolların kenarlarında eğri payı: eğri (Q, C, S, T) / bütün kenarlar (L, H, V dahil)."""
+    egri = duz = 0
+    adim = {"Q": 4, "T": 2, "C": 6, "S": 4, "L": 2, "H": 1, "V": 1}
+    for el, _, _ in liste:
+        if el.get("fill", "#000000") == "none":
+            continue
+        for komut, arg in re.findall(r"([MLHVQTCSZmlhvqtcsz])([^MLHVQTCSZmlhvqtcsz]*)", el.get("d", "")):
+            k = komut.upper()
+            if k not in adim:
+                continue
+            n = len(re.findall(r"-?\d*\.?\d+(?:[eE][-+]?\d+)?", arg)) // adim[k]
+            if k in "QTCS":
+                egri += n
+            else:
+                duz += n
+    return egri / (egri + duz) if egri + duz else None
+
+
 def svg_olc(yol):
     kok, liste, degradeler = ogeler(yol)
     dolgu = kontur = 0
@@ -225,6 +244,7 @@ def svg_olc(yol):
         "dolgu_grubu": dolgu,
         "kontur": kontur,
         "kontur_kalinliklari": sorted(Counter(kalinliklar).items()),
+        "egri_orani": y4(egri_orani(liste)),
         "degrade": toplam_deg,
         "degrade_orani": y4(toplam_deg / dolgu) if dolgu else 0,
         "degrade_turleri": dict(sorted(deg_say.items())),
@@ -380,6 +400,9 @@ def isaret_oranlari(f):
         if f.get("tam_boy", True):
             o["el_boy"] = y4(el_boy / boy)
         o["el_yuz"] = y4(el_boy / bas)
+        poz = poz_isaretten(f)
+        if poz:
+            o["asimetri"] = y4(asimetri(poz))
     eks = f.get("silah_ekseni")
     if eks:
         (x1, y1), (x2, y2) = eks
@@ -489,6 +512,20 @@ def poz_uzakligi(a, b):
     return en_iyi
 
 
+def asimetri(p):
+    """Pozun önden simetrik duruştan farkı (derece): sol uzuvlar sağdakilerin aynasıyla, gövde dikeyle
+    karşılaştırılır. 0 = tam simetrik, önden duruş."""
+    farklar = []
+    if p["govde"] is not None:
+        farklar.append(aci_farki(p["govde"], -90))
+    for grup in ("kol", "bacak"):
+        if len(p[grup]) == 2:
+            for x, y in zip(p[grup][0], p[grup][1]):
+                if x is not None and y is not None:
+                    farklar.append(aci_farki(x, (180 - y) % 360))
+    return sum(farklar) / len(farklar) if farklar else 0.0
+
+
 def referans_pozlar():
     """Bütün referans pozlar: (ad, poz). Kahraman çizimleri (isaretler.json) ve iki oyunun bütün
     kukla kareleri (referans/<oyun>/pozlar.json; yoksa atlanır)."""
@@ -555,6 +592,7 @@ OLCUTLER = [
     ("kontur", "Kontur (çizgi) sayısı"),
     ("en_kalin_kontur", "En kalın kontur (çizim birimi)"),
     ("palet_boyu", "Ayrı dolgu rengi / degradesi"),
+    ("egri_orani", "Kenarlarda eğri payı"),
     ("degrade_orani", "Degradeli dolgu oranı"),
     ("dairesel_degrade", "Dairesel degrade sayısı"),
     ("iki_durakli_orani", "Degradelerde 2 duraklı oranı"),
@@ -565,6 +603,9 @@ OLCUTLER = [
     ("cok_doygun_orani", "Çok doygun piksel oranı (S>0,85, V>0,6)"),
     ("genis_alan_doygunlugu", "Geniş alanların doygunluğu (alanı ≥%5 renkler, alan ağırlıklı)"),
     ("en_doygun_genis_alan", "En doygun geniş alan (alanı ≥%5)"),
+    ("doygun_alan", "Doygun renklerin (S>0,7, V>0,4) toplam alanı"),
+    ("doygun_aile", "Doygun renk ailesi sayısı (30°'lik ton dilimi, alanı ≥%2)"),
+    ("saf_ana_renk_alani", "Saf ana renk alanı (S≥0,95, V≥0,95)"),
 ]
 
 
@@ -585,6 +626,32 @@ def renk_doygunlugu(ad):
     return statistics.mean(hsv(r)[1] for r in renkler) if renkler else 0.0
 
 
+def renk_payi(palet):
+    """Palet girdilerini tek tek renklere böler: [(renk, alan payı)]. Degradenin alanı uçlarına eşit
+    bölünür."""
+    out = []
+    for ad, alan in palet:
+        renkler = re.findall(r"#[0-9A-Fa-f]{6}", ad)
+        out += [(r.upper(), alan / len(renkler)) for r in renkler]
+    return out
+
+
+def doygunluk_olculeri(palet):
+    """Doygun alan, doygun renk ailesi sayısı, saf ana renk alanı."""
+    doygun = 0.0
+    aileler = Counter()
+    saf = 0.0
+    for r, a in renk_payi(palet):
+        h, s, v = hsv(r)
+        if s > 0.7 and v > 0.4:
+            doygun += a
+            aileler[int((h * 360 + 15) // 30) % 12] += a
+        if s >= 0.95 and v >= 0.95:
+            saf += a
+    return {"doygun_alan": y4(doygun), "doygun_aile": sum(1 for a in aileler.values() if a >= 0.02),
+            "saf_ana_renk_alani": y4(saf)}
+
+
 def ozet(yol):
     """Bir çizimin bütün ölçütleri (rapor ve karşılaştırma için düz sözlük)."""
     s = svg_olc(yol)
@@ -597,6 +664,7 @@ def ozet(yol):
         "kontur": s["kontur"],
         "en_kalin_kontur": max((k for k, _ in s["kontur_kalinliklari"]), default=0),
         "palet_boyu": len(s["palet"]),
+        "egri_orani": s["egri_orani"],
         "degrade_orani": s["degrade_orani"],
         "dairesel_degrade": s["degrade_turleri"].get("dairesel", 0),
         "iki_durakli_orani": y4(s["durak_sayilari"].get(2, 0) / deg) if deg else None,
@@ -607,6 +675,7 @@ def ozet(yol):
         "cok_doygun_orani": p["cok_doygun_orani"],
         "genis_alan_doygunlugu": y4(sum(renk_doygunlugu(ad) * a for ad, a in genis) / ga) if ga else None,
         "en_doygun_genis_alan": y4(max((renk_doygunlugu(ad) for ad, _ in genis), default=0)),
+        **doygunluk_olculeri(s["palet"]),
         "degrade_yonleri": s["degrade_yonleri"],
         "degrade_v_farklari": s.get("degrade_v_farklari", []),
         "palet": s["palet"],
@@ -664,6 +733,7 @@ ORAN_ADLARI = {
     "bas_sayisi": "Boy (baş sayısı)", "omuz_bas": "Omuz genişliği / baş yüksekliği", "bacak_boy": "Bacak / boy (kasıktan tabana)", "omuz_boy": "Omuz genişliği / boy",
     "bel_boy": "Bel yüksekliği / boy (tepeden)", "diz_boy": "Diz yüksekliği / boy (tepeden)", "el_boy": "El (uzun kenar) / boy",
     "el_yuz": "El / yüz (tepe–çene)", "silah_acisi": "Silah açısı (yataydan, derece)",
+    "asimetri": "Asimetri (önden simetrik duruştan uzuv açısı farkı, derece)",
 }
 
 
@@ -726,6 +796,14 @@ def rapor_md(sonuc):
 
 # Bilgi için gösterilen, geçti/kaldı sayılmayan ölçütler (her değer kabul: aralık yalnızca bilgi)
 YALNIZ_BILGI = {"silah_acisi", "dairesel_degrade"}
+# Oyunun sahibinin kuralı, ölçülen orta yarıdan dar olduğunda geçme aralığı bu olur (bkz. docs/SANAT.md):
+# en fazla bir vurgu rengi ailesi; degrade uçlarının ΔV'si sahibin 0,10–0,20'si ile ölçülen orta yarının
+# kesişimi.
+SAHIP_SINIRLARI = {"doygun_aile": (0, 1), "degrade_v_farki_medyan": (0.10, 0.18)}
+
+
+def gecme_araligi(anahtar, d):
+    return SAHIP_SINIRLARI.get(anahtar, (d["ceyrek_1"], d["ceyrek_3"]))
 
 
 def karsilastir(svg_yolu, kume="kahraman", isaret=None):
@@ -740,7 +818,10 @@ def karsilastir(svg_yolu, kume="kahraman", isaret=None):
         if not d or bizim.get(anahtar) is None:
             continue
         v = bizim[anahtar]
-        gecti = None if anahtar in YALNIZ_BILGI else d["ceyrek_1"] <= v <= d["ceyrek_3"]
+        alt, ust = gecme_araligi(anahtar, d)
+        gecti = None if anahtar in YALNIZ_BILGI else alt <= v <= ust
+        if anahtar in SAHIP_SINIRLARI:
+            aciklama += f" (sahibin kuralı: {sayi(alt)}–{sayi(ust)})"
         satirlar.append((aciklama, d, v, gecti))
     if isaret:
         o = isaret_oranlari(isaret)
