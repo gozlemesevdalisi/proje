@@ -6,7 +6,7 @@ Kare formülleri oyunun kodundan alındı (Item.getFrame, Creature.initUnit):
 - Silah: tür formülü (ör. mızrak 112 + seviye + ulus_no × 3); boş el 169.
 - Duruş: kukla zaman çizelgesinde silah türünün etiketi ("spear", "bow", "sword" ...).
 
-Kullanım: python3 tools/referans/birlikler.py <f1|f2> <oyun.swf> <şekil klasörü> <çıktı klasörü>
+Kullanım: python3 araclar/olcum/birlikler.py <f1|f2> <oyun.swf> <şekil klasörü> <çıktı klasörü>
 Çıktılar git'e girmez (referans/ klasörü). Esinin çizimleri oyunda kullanılmaz; yalnızca ölçülür.
 """
 import json

@@ -1,7 +1,7 @@
 """Referans karakterlerde malzeme başına renk ölçümü: ana renk (en sık), en açık ve en koyu uç.
 
 Kutular 800×600 sahne koordinatındadır (birinci oyunun kahraman seçimi, 4× ölçekte alınmış
-`shots/f1_hero_4x.png`). Kullanım: python3 tools/referans/sample_materials.py <görüntü klasörü>
+`shots/f1_hero_4x.png`). Kullanım: python3 araclar/olcum/sample_materials.py <görüntü klasörü>
 """
 import json
 import sys

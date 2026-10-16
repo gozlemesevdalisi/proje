@@ -5,7 +5,7 @@ Her birlik `birlikler.py` ile oyundaki donanım ve duruşla birleştirilir; sonr
 bağımsızdır. Sonuç `docs/KARAKTER_OLCULERI.md` dosyasına yazılır (yalnızca sayılar; esinin
 çizimleri depoya girmez).
 
-Kullanım: tools/referans/cikar.sh (FFDec çıkarımı, birleştirme ve bu ölçüm birlikte çalışır).
+Kullanım: araclar/olcum/cikar.sh (FFDec çıkarımı, birleştirme ve bu ölçüm birlikte çalışır).
 """
 import json
 import math
@@ -285,7 +285,7 @@ def main(ref, cikti_md):
     sonuc = []
     katmanlar = {}
     for profil in ("f1", "f2"):
-        swf = Swf(SWF[profil], os.path.join(ref, profil, "sekiller"))
+        swf = Swf(SWF[profil], os.path.join(ref, profil, "svg"))
         katmanlar[profil] = katman_sirasi(swf)
         for ad, *tanim in B.PROFILLER[profil]["birlikler"]:
             o, _ = olc_birlik(swf, profil, ad, tanim, None)
@@ -303,7 +303,7 @@ def yaz_md(sonuc, katmanlar, yol):
     L = []
     L.append("# Karakter ölçüleri (esin kaynağından)")
     L.append("")
-    L.append("Bu sayfa `tools/referans/olc.py` ile **otomatik üretilir**; elle düzenlenmez. Esin kaynağı iki")
+    L.append("Bu sayfa `araclar/olcum/olc.py` ile **otomatik üretilir**; elle düzenlenmez. Esin kaynağı iki")
     L.append("oyunun savaş kuklaları, oyunun kendi kodundaki formüllerle (ulus, cinsiyet, zırh, miğfer, silah,")
     L.append("duruş) birleştirildi ve parça parça ölçüldü. Esinin çizimleri depoya girmez; yalnızca bu sayılar.")
     L.append("")

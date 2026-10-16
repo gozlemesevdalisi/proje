@@ -543,9 +543,22 @@ impl Renderer {
         if size.x == 0 || size.y == 0 {
             return;
         }
-        // Arka plan, mantıksal alanı kaplayan bir kare olarak listenin başına eklenir.
+        // Şerit yoksa (içerik bütün hedefi kaplıyorsa) hedef doğrudan arka plan rengiyle temizlenir;
+        // böylece saydam arka plan saydam kalır. Şerit varsa şerit rengiyle temizlenir ve arka plan,
+        // mantıksal alanı kaplayan bir kare olarak listenin başına eklenir.
+        let seritsiz = viewport.offset.length_squared() < 1e-6
+            && (viewport.logical * viewport.scale - size.as_vec2())
+                .abs()
+                .max_element()
+                < 0.5;
+        let temiz = if seritsiz {
+            let p = list.clear.premultiplied();
+            Color::rgba(p[0], p[1], p[2], p[3])
+        } else {
+            LETTERBOX_COLOR
+        };
         let mut items = Vec::with_capacity(list.items.len() + 1);
-        if list.clear.a > 0.0 {
+        if !seritsiz && list.clear.a > 0.0 {
             let bg = GpuInstance::new(
                 Affine2::from_scale(viewport.logical),
                 ColorTransform::multiply(list.clear),
@@ -584,7 +597,7 @@ impl Renderer {
                 label: Some("çizim"),
             });
         {
-            let bar = LETTERBOX_COLOR;
+            let bar = temiz;
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("vektör geçişi"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {

@@ -1,7 +1,7 @@
 """SWF'deki bir kuklaya bağlı bütün şekillerin renklerini sayar.
 
 Kullanım (bkz. docs/SANAT.md, "Referanslar"):
-    python3 tools/referans/char_palette.py tools/referans <oyun.swf> Human,Human_Player cikti.json
+    python3 araclar/olcum/char_palette.py araclar/olcum <oyun.swf> Human,Human_Player cikti.json
 """
 import json
 import struct

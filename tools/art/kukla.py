@@ -25,7 +25,7 @@ SIRA = ["ust_kol_arka", "on_kol_arka", "silah_arka", "uyluk_arka", "baldir_arka"
         "govde", "bas", "silah_on", "ust_kol_on", "on_kol_on"]
 
 # Duruşlar: her parçanın eklem yeri (kalçaya göre, baş biriminde) ve açısı (derece).
-# Esin kaynağının savaş kuklası animasyonlarından ölçüldü (tools/referans/durus.py).
+# Esin kaynağının savaş kuklası animasyonlarından ölçüldü (araclar/olcum/durus.py).
 DURUSLAR = {
     # Kılıç yukarıda, kalkan arka kolda (esin: "sword" animasyonu, 11. kare)
     "kilic": {

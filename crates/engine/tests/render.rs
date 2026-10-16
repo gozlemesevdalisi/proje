@@ -233,6 +233,27 @@ fn letterbox_bars_outside_logical_area() {
 }
 
 #[test]
+fn transparent_background_without_bars_stays_transparent() {
+    // Ölçüm araçları çizimleri saydam zeminde ister: şerit yoksa boş pikseller saydam kalır.
+    let mut r = renderer();
+    let mesh = r.upload(
+        &tessellate(
+            &image(vec![Shape::filled(
+                rect_path(Vec2::new(25.0, 25.0), Vec2::splat(50.0)),
+                hex("#A3241A"),
+            )]),
+            0.05,
+        )
+        .unwrap(),
+    );
+    let mut list = DrawList::new(Color::TRANSPARENT);
+    list.draw(&mesh, Affine2::IDENTITY);
+    let img = r.render_to_image(&small_viewport(), &list).unwrap();
+    assert_eq!(img.pixel(5, 5), [0, 0, 0, 0], "boş köşe");
+    assert_eq!(img.pixel(50, 50), hex("#A3241A").to_rgba8(), "şekil");
+}
+
+#[test]
 fn many_paints_and_instances_grow_buffers() {
     let mut r = renderer();
     let mut list = DrawList::new(Color::BLACK);

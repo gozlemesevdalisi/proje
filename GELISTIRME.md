@@ -31,7 +31,7 @@ Hepsi depo kökünde çalıştırılır.
 | Sahneyi resme çiz           | `cargo run -p game -- --goruntu cikti.png --boyut 3840x2160` |
 | Bir SVG'yi resme çiz        | `cargo run -p engine --example svg-png -- girdi.svg cikti.png 2` |
 | Örnek çizimleri yeniden üret | `python3 tools/art/ciz_birlikler.py` (ayrıca `ciz_manzara.py`, `ciz_pencere.py`) |
-| Karakter ölçülerini karşılaştır | `python3 tools/art/kukla_olc.py` (önce `tools/referans/cikar.sh`) |
+| Karakter ölçülerini karşılaştır | `python3 tools/art/kukla_olc.py` (önce `araclar/olcum/cikar.sh`) |
 | Sanat kurallarını denetle   | `cargo test -p game --test art_rules`                     |
 
 Çizimler elle değil, `tools/art/` içindeki betiklerle üretilir; betikler renkleri yalnızca

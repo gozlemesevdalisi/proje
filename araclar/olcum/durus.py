@@ -2,7 +2,7 @@
 
 Çıktı, `tools/art/kukla.py` içindeki DURUSLAR sözlüğünün biçimindedir: her parça için ön uyluğun
 eklemine (kalça) göre yer (baş biriminde) ve açı (derece).
-Kullanım: python3 tools/referans/durus.py <etiket> <kare> [<etiket> <kare> ...]  (ör. sword 11)
+Kullanım: python3 araclar/olcum/durus.py <etiket> <kare> [<etiket> <kare> ...]  (ör. sword 11)
 """
 import math
 import os
@@ -33,7 +33,7 @@ def durus(swf, etiket, kare):
 
 
 if __name__ == "__main__":
-    swf = Swf(olc.SWF["f1"], os.path.join(os.path.dirname(olc.__file__), "..", "..", "referans", "f1", "sekiller"))
+    swf = Swf(olc.SWF["f1"], os.path.join(os.path.dirname(olc.__file__), "..", "..", "referans", "f1", "svg"))
     args = sys.argv[1:]
     for etiket, kare in zip(args[0::2], args[1::2]):
         print(f'    # esin: "{etiket}" animasyonu, {kare}. kare')

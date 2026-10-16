@@ -1,8 +1,8 @@
 """Kendi kuklamızı esin kaynağının ölçüleriyle sayıyla karşılaştırır.
 
-Aynı ölçüm yöntemi (tools/referans/olc.py) kendi parçalarımıza uygulanır: her parça kendi ekseninde
+Aynı ölçüm yöntemi (araclar/olcum/olc.py) kendi parçalarımıza uygulanır: her parça kendi ekseninde
 maskelenir, enleri ve boyları baş yüksekliğine bölünür. Esinin değerleri
-`referans/olcumler.json` dosyasından okunur (bkz. tools/referans/cikar.sh). Sonuç
+`referans/olcumler.json` dosyasından okunur (bkz. araclar/olcum/cikar.sh). Sonuç
 `docs/KARAKTER_KARSILASTIRMA.md` dosyasına yazılır.
 
 Kullanım: python3 tools/art/kukla_olc.py
@@ -14,7 +14,7 @@ import statistics
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "referans"))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "araclar", "olcum"))
 import ciz_birlikler  # noqa: E402
 import kukla  # noqa: E402
 from cizim import KOK  # noqa: E402
