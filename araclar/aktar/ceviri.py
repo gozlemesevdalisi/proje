@@ -134,7 +134,8 @@ def translate_code(swf_root, code_dir, tables_dir, out_dir):
 
 
 # TeX Gyre ailelerinin dağıtım belgeleri ve LPPL 1.3c metni (GUST yazı tipi lisansı LPPL'nin bir örneğidir;
-# kaynak: Ubuntu "fonts-texgyre 20180621" = TeX Gyre 2.501 ve "texlive-latex-base-doc", bkz. docs/LISANSLAR.md)
+# kaynak: Ubuntu "fonts-texgyre 20180621" = TeX Gyre dağıtımı 2.501 ve "texlive-latex-base-doc", bkz.
+# docs/LISANSLAR.md)
 LICENCE_DOCS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lisanslar")
 TEX_GYRE_FAMILY = re.compile(r"^texgyre([a-z]+)-")
 

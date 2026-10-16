@@ -71,3 +71,19 @@ fn town_screen_with_bitmap_filled_ground_snapshot() {
         panic!("{e}");
     }
 }
+
+#[test]
+fn town_screen_with_objects_moved_back_to_identity_snapshot() {
+    // D3-1: F1 kök filmin 13. karesinde binalar "taşı" işlemiyle başlangıç konumlarına (birim matris)
+    // döner; bu bilgi kaybolursa yarısı yanlış yerde çizilir
+    let reference = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/reference");
+    let image = render_root_frame("f1", 13, UVec2::new(400, 300));
+    if let Err(e) = check(
+        "feudalism-f1-sehir-13",
+        &reference,
+        &image,
+        Tolerance::RENDERER,
+    ) {
+        panic!("{e}");
+    }
+}

@@ -8,7 +8,7 @@ Kod kütüphanelerinin lisansları `cargo deny` ile denetlenir.
 | Feudalism ve Feudalism 2 görselleri: şekiller, animasyonlar, düğmeler, ekranlar | Orijinal oyunların SWF dosyaları (`feudalism-orijinal.swf`, `feudalism-2-orijinal.swf`); SHA-256 özetleri `content/feudalism/<oyun>/library.json` içinde | Hak sahibinin izniyle (oyunun sahibinin 16 Ekim 2026'da bildirdiği). Oyunlarda yazan hak sahibi: Vitaly Zaborov ("Copyright Vitaly Zaborov 2008"). | `content/feudalism/` |
 | Feudalism ve Feudalism 2'nin Türkçe çevirisi: sabit yazılar, ekran kutuları, koddaki metinler, silah/zırh/birlik adları, "Öldün..." çizimi | Oyunların sahibinin `swf-oyunlar` deposu (`oyunlar/<oyun>/ceviri/`, sürüm `a679d21`, 14 Ekim 2026) | Oyunların sahibinin kendi çevirisi | `content/feudalism/<oyun>/ceviri/` (tablolar değiştirilmeden), çevrilmiş kod `kaynak/feudalism/<oyun>/kod-tr/` |
 | Liberation Sans ve Liberation Serif 2.1.5 (normal, kalın, kalın italik) | [liberationfonts](https://github.com/liberationfonts/liberation-fonts), yapımcı: Red Hat; dosyalar `swf-oyunlar/yazitipleri/` içinden | SIL Open Font License 1.1 | `content/fonts/Liberation*.ttf`, lisans: `content/fonts/OFL-Liberation.txt` |
-| TeX Gyre 2.501 Pagella (kalın, kalın italik), Bonum (kalın, italik), Chorus, Adventor (kalın) | [GUST](https://www.gust.org.pl/projects/e-foundry/tex-gyre); dosyalar `swf-oyunlar/araclar/yazitipleri/` içinden | GUST Font License (LaTeX Project Public License 1.3c) | `content/fonts/texgyre*.otf`, lisans: `content/fonts/GUST-Font-License.txt` ve `LPPL-1.3c.txt`, ailelerin dosya listesi ve tanıtımı: `MANIFEST-TeX-Gyre-<aile>.txt`, `README-TeX-Gyre-<aile>.txt` |
+| TeX Gyre Pagella 2.501 (kalın, kalın italik), Bonum 2.004 (kalın, italik), Chorus 2.003, Adventor 2.501 (kalın); TeX Gyre dağıtımı 2.501 | [GUST](https://www.gust.org.pl/projects/e-foundry/tex-gyre); dosyalar `swf-oyunlar/araclar/yazitipleri/` içinden | GUST Font License (LaTeX Project Public License 1.3c) | `content/fonts/texgyre*.otf`, lisans: `content/fonts/GUST-Font-License.txt` ve `LPPL-1.3c.txt`, ailelerin dosya listesi ve tanıtımı: `MANIFEST-TeX-Gyre-<aile>.txt`, `README-TeX-Gyre-<aile>.txt` |
 | Alegreya (değişken kalınlık) | [google/fonts](https://github.com/google/fonts/tree/main/ofl/alegreya), yapımcı: Huerta Tipográfica | SIL Open Font License 1.1 | `content/fonts/Alegreya-Variable.ttf`, lisans: `content/fonts/OFL-Alegreya.txt` |
 | Alegreya SC (normal, kalın) | [google/fonts](https://github.com/google/fonts/tree/main/ofl/alegreyasc), yapımcı: Huerta Tipográfica | SIL Open Font License 1.1 | `content/fonts/AlegreyaSC-*.ttf`, lisans: `content/fonts/OFL-AlegreyaSC.txt` |
 | Alegreya Sans (normal, kalın) | [google/fonts](https://github.com/google/fonts/tree/main/ofl/alegreyasans), yapımcı: Huerta Tipográfica | SIL Open Font License 1.1 | `content/fonts/AlegreyaSans-*.ttf`, lisans: `content/fonts/OFL-AlegreyaSans.txt` |
@@ -50,8 +50,9 @@ Notlar:
   alındığı bu tabloda ve dağıtımın tamamının yeri ailenin README/MANIFEST dosyasında yazılıdır. Bu
   belgeler yazı tipleriyle birlikte dağıtılır. Sahibinin kararı (16 Ekim 2026): proje ücretsiz ve
   ticari amaçsızdır; TeX Gyre dosyaları bu biçimde kullanılır.
-- TeX Gyre dosyalarının sürümü: 2.501 (8 Mayıs 2018). Bu sürüm, Ubuntu 24.04'ün `fonts-texgyre`
-  (20180621-6) paketindeki dosyalarla bayt bayt aynıdır; MANIFEST ve README dosyaları o paketten
+- TeX Gyre: dağıtımın sürümü 2.501 (8 Mayıs 2018); dosyaların kendi sürümleri (`name` tablosu) Pagella
+  ve Adventor 2.501, Bonum 2.004, Chorus 2.003. Dosyalar Ubuntu 24.04'ün `fonts-texgyre` (20180621-6)
+  paketindekilerle bayt bayt aynıdır; MANIFEST ve README dosyaları o paketten
   (`/usr/share/texmf/doc/fonts/tex-gyre/`), LPPL 1.3c metni `texlive-latex-base-doc` (2023.20240207-1)
   paketinden (`lppl.txt`) 16 Ekim 2026'da alındı. Kaynakları `araclar/aktar/lisanslar/`; aktarım
   aracı TeX Gyre yazı tipiyle birlikte `content/fonts/`'a kopyalar. Bonum ve Chorus dosyalarının `fsType`

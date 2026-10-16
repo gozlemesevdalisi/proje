@@ -74,18 +74,21 @@ def round_list(values, digits=4):
 
 
 def clean_op(op):
-    """Zaman çizelgesi işlemini JSON için sadeleştirir (yuvarlama, birim değerleri atma)."""
+    """Zaman çizelgesi işlemini JSON için sadeleştirir (yuvarlama, yeni yerleştirmede birim değerleri
+    atma). "Taşı" işleminde birim matris ve renk dönüşümü korunur: orada "başlangıca dön" demektir,
+    eksik alan ise "değişmedi"."""
     out = {}
+    moves = bool(op.get("move"))
     for k, v in op.items():
         if k == "matrix":
             # 6 ondalık: SWF'deki 16.16 sabit noktalı değer bundan geri kurulabilir
-            if v != [1.0, 0.0, 0.0, 1.0, 0.0, 0.0]:
+            if moves or v != [1.0, 0.0, 0.0, 1.0, 0.0, 0.0]:
                 out[k] = round_list(v, 6)
         elif k == "cxform":
-            if v != [[1.0, 1.0, 1.0, 1.0], [0.0, 0.0, 0.0, 0.0]]:
+            if moves or v != [[1.0, 1.0, 1.0, 1.0], [0.0, 0.0, 0.0, 0.0]]:
                 out[k] = [round_list(v[0], 6), round_list(v[1], 6)]
         elif k == "ratio":
-            out[k] = round(v, 5)
+            out[k] = round(v, 6)
         else:
             out[k] = v
     return out
@@ -431,6 +434,40 @@ def bitmap_fills(movie, sid):
     return [f for f in fills if f["type"] == "bitmap"]
 
 
+MATRIX_ATTR = re.compile(r'<(linearGradient|radialGradient|pattern)\b[^>]*?\b(gradientTransform|patternTransform)='
+                         r'"matrix\(([^)]*)\)"')
+
+
+def shape_fills(movie, sid):
+    """Şeklin bütün dolgu stilleri (yeni stil dizileri dahil), swfstats biçiminde."""
+    code, body = movie.shape_bodies[sid]
+    return swfstats.parse_shape(body, SHAPE_VERSION[code])[2]
+
+
+def precise_matrices(svg, fills):
+    """Degrade ve desen matrislerini SWF'deki değerden 6 ondalıkla yazar (FFDec 4 ondalığa yuvarlar). Her
+    matris, türü uyan ve FFDec'in yuvarlamasıyla tutan SWF dolgusuna eşlenir; eşi yoksa ya da tam değeri
+    farklı birden çok eşi varsa hata. Degradede matris birimsizdir, desende resim pikselini twip'e taşır
+    (20'ye bölünür); öteleme twip'tir."""
+    def replace(m):
+        tag, attr, values = m.group(1), m.group(2), [float(v) for v in m.group(3).split(",")]
+        kinds = {"linearGradient": ("linear",), "radialGradient": ("radial", "focal"), "pattern": ("bitmap",)}[tag]
+        div = 20.0 if tag == "pattern" else 1.0
+        found = []
+        for f in fills:
+            if f["type"] not in kinds:
+                continue
+            full = [v / div for v in f["matrix"][:4]] + [v / 20 for v in f["matrix"][4:]]
+            if all(abs(a - b) <= 6e-5 for a, b in zip(values[:4], full[:4])) and \
+                    all(abs(a - b) <= 0.01 for a, b in zip(values[4:], full[4:])):
+                found.append([round(v, 6) for v in full])
+        if not found or any(x != found[0] for x in found[1:]):
+            raise ValueError(f"{tag} matrisi ({m.group(3)}) SWF'deki dolgulara tek biçimde eşlenemedi")
+        text = ", ".join(number(v) for v in found[0])
+        return m.group(0).replace(f"{attr}=\"matrix({m.group(3)})\"", f"{attr}=\"matrix({text})\"")
+    return MATRIX_ATTR.sub(replace, svg)
+
+
 def mark_bitmap_modes(svg, fills):
     """Resim dolgusunun türünü desenin kimliğine yazar: "-kirp" kırpılmış (resmin kenarı uzar, tekrar
     etmez), "-yumusak" yumuşatmalı (yoksa en yakın piksel). Desen, matrisi SWF'deki dolgunun matrisiyle
@@ -633,11 +670,14 @@ def build(game, swf_path, archive, out_dir, code_dir, swf_root=None, tr_archive=
         with open(os.path.join(archive, "shapes", f"{sid}.svg"), encoding="utf-8") as f:
             raw = f.read()
         converted = convert_shape(raw)
+        fills = shape_fills(movie, sid)
         if converted is None:
-            text, origin, sub = mark_bitmap_modes(clean_svg(raw), bitmap_fills(movie, sid)), svg_origin(raw), "shapes-bitmap"
+            text = precise_matrices(mark_bitmap_modes(clean_svg(raw), bitmap_fills(movie, sid)), fills)
+            origin, sub = svg_origin(raw), "shapes-bitmap"
             bitmap_shapes[str(sid)] = round_list(origin, 3)
         else:
             (text, origin), sub = converted, "shapes"
+            text = precise_matrices(text, fills)
             shapes[str(sid)] = round_list(origin, 3)
             lines = hairlines(text)
             if lines:
@@ -762,9 +802,6 @@ def build(game, swf_path, archive, out_dir, code_dir, swf_root=None, tr_archive=
             text_data = json.load(f)
         library["translation"] = ceviri.import_translation(game, swf_root, archive, tr_archive, out_dir, code_dir,
                                                            library, text_data, convert_shape)
-    with open(os.path.join(out_dir, "library.json"), "w", encoding="utf-8") as f:
-        json.dump(library, f, ensure_ascii=False, separators=(",", ":"))
-        f.write("\n")
     # Üçüncü tarafların kodu kaynak/ altına girmez (yalnız yerel arşivde, FFDec dökümünde kalır)
     for rel, (reason, marker) in THIRD_PARTY_CODE.get(game, {}).items():
         with open(os.path.join(archive, "scripts", rel), encoding="utf-8") as f:
@@ -777,7 +814,14 @@ def build(game, swf_path, archive, out_dir, code_dir, swf_root=None, tr_archive=
         return third_party_code(game, rel, tp, movie.exports, unnamed)
     code_excluded = prune_code(os.path.join(code_dir, "kod"), reason_of)
     if os.path.isdir(os.path.join(code_dir, "kod-tr")):
-        prune_code(os.path.join(code_dir, "kod-tr"), reason_of)
+        removed = prune_code(os.path.join(code_dir, "kod-tr"), reason_of)
+        # Çevrilen kod sayısı dışarıda bırakılanlar çıktıktan sonra; onların çevirisi kullanılmaz (D3-6)
+        library["translation"]["counts"]["code_files"] -= len(removed)
+        if removed:
+            library["translation"]["unused"]["kod"] = sorted(removed)
+    with open(os.path.join(out_dir, "library.json"), "w", encoding="utf-8") as f:
+        json.dump(library, f, ensure_ascii=False, separators=(",", ":"))
+        f.write("\n")
     # Manifest: her karakterin ve her etiket türünün nereye gittiği
     for cid, reason in tp.items():
         where[cid] = "yalnız yerel arşiv: " + reason

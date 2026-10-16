@@ -574,8 +574,18 @@ class Filters(unittest.TestCase):
     def test_clean_op_drops_identity_values(self):
         op = {"depth": 1, "matrix": [1.0, 0.0, 0.0, 1.0, 0.0, 0.0], "cxform": [[1.0] * 4, [0.0] * 4],
               "ratio": 0.123456}
-        self.assertEqual(aktar.clean_op(op), {"depth": 1, "ratio": 0.12346})
+        self.assertEqual(aktar.clean_op(op), {"depth": 1, "ratio": 0.123456})
 
+
+    def test_clean_op_keeps_identity_on_move(self):
+        # D3-1: "taşı" işleminde birim matris ve birim renk dönüşümü "başlangıca dön" demektir; atılırsa
+        # oynatıcı nesneyi eski yerinde bırakır. Yeni yerleştirmede ise birim değer yazılmayabilir.
+        identity = [1.0, 0.0, 0.0, 1.0, 0.0, 0.0]
+        unit = [[1.0] * 4, [0.0] * 4]
+        moved = aktar.clean_op({"depth": 3, "move": True, "matrix": identity, "cxform": unit})
+        self.assertEqual(moved, {"depth": 3, "move": True, "matrix": identity, "cxform": unit})
+        placed = aktar.clean_op({"depth": 3, "char": 5, "matrix": identity, "cxform": unit})
+        self.assertEqual(placed, {"depth": 3, "char": 5})
 
     def test_clean_op_keeps_16_16_values_recoverable(self):
         # 16.16 sabit noktalı ölçek: 6 ondalıkla yazılır; SWF'deki tamsayı geri kurulabilir
@@ -655,6 +665,26 @@ class BitmapFillModes(unittest.TestCase):
         self.assertIn("url(#PatternID_5_1-kirp)", out)
         with self.assertRaises(ValueError):
             aktar.mark_bitmap_modes(svg.replace("3.0, 4.0", "9.0, 4.0"), fills)
+
+class PreciseShapeMatrices(unittest.TestCase):
+    """D3-2: şekil SVG'lerindeki degrade ve desen matrisleri SWF'deki 16.16 değerlerden 6 ondalıkla yazılır
+    (FFDec 4 ondalığa yuvarlar; uzaktan başlayan tekrarlı dokular bu yüzden kayıyordu)."""
+
+    def test_gradient_and_pattern_matrices_get_swf_precision(self):
+        a = 9038 / 65536
+        svg = ('<svg><linearGradient gradientTransform="matrix(0.1379, 0.0, 0.0, -0.0883, -167.3, 0.15)" id="g"/>'
+               '<pattern id="p" patternTransform="matrix(1.0042, 0.0, -0.1525, 0.7624, -8777.15, -812.1)"/></svg>')
+        fills = [{"type": "linear", "matrix": (a, 0.0, 0.0, -5790 / 65536, -3346, 3)},
+                 {"type": "bitmap", "id": 7, "matrix": (20 * 65811 / 65536, 0.0, 20 * -9993 / 65536, 20 * 49963 / 65536,
+                                                         -175543, -16242), "clip": False, "smooth": False}]
+        out = aktar.precise_matrices(svg, fills)
+        self.assertIn(f'gradientTransform="matrix({round(a, 6)!r}, 0.0, 0.0, {round(-5790 / 65536, 6)!r}, -167.3, 0.15)"', out)
+        self.assertIn(f'patternTransform="matrix({round(65811 / 65536, 6)!r}, 0.0, {round(-9993 / 65536, 6)!r}, '
+                      f'{round(49963 / 65536, 6)!r}, -8777.15, -812.1)"', out)
+
+    def test_unmatched_matrix_is_an_error(self):
+        with self.assertRaises(ValueError):
+            aktar.precise_matrices('<svg><radialGradient gradientTransform="matrix(2.0, 0.0, 0.0, 2.0, 0.0, 0.0)"/></svg>', [])
 
 class ActionStrings(unittest.TestCase):
     """AVM1 bayt kodundaki dizeler (kod çevirisinin Türkçe SWF'yle karşılaştırılması için)."""

@@ -25,6 +25,7 @@ FFDec'in çizimi arasında piksel piksel karşılaştırır.
 | Koddaki çeviriler (çevrilen koddaki her yeni dize sahibinin Türkçe SWF'sinin bayt kodunda) | 476 | 0 |
 | Yazı tiplerinin açık lisanslı karşılıkları (dosya kaynağıyla aynı, lisansı yanında) | 15 | 0 |
 | Morph sınırları (iki ucun SWF'deki sınırlarının birleşimi) | 11 | 0 |
+| Şekillerin renkleri, saydamlıkları, çizgi kalınlıkları, degrade matrisleri ve durakları (FFDec XML'iyle sayısal) | 8011 | 0 |
 | Morph uçlarının renkleri, saydamlıkları, çizgi kalınlıkları ve degrade matrisleri (FFDec XML'iyle sayısal) | 44 | 0 |
 | Tanımsız karakter başvurusu (dışarıda bırakılana 2 başvuru: oynatıcı atlar) | 27152 | 0 |
 | Sponsor ve üçüncü taraf izi (çizimlerin içerik özetiyle iki oyunda; yazılarda; kaynak/ kodunda) | 1854 | 0 |
@@ -53,18 +54,15 @@ FFDec'in çizimi arasında piksel piksel karşılaştırır.
 | Koddaki çeviriler (çevrilen koddaki her yeni dize sahibinin Türkçe SWF'sinin bayt kodunda) | 1031 | 0 |
 | Yazı tiplerinin açık lisanslı karşılıkları (dosya kaynağıyla aynı, lisansı yanında) | 16 | 0 |
 | Morph sınırları (iki ucun SWF'deki sınırlarının birleşimi) | 24 | 0 |
+| Şekillerin renkleri, saydamlıkları, çizgi kalınlıkları, degrade matrisleri ve durakları (FFDec XML'iyle sayısal) | 13545 | 0 |
 | Morph uçlarının renkleri, saydamlıkları, çizgi kalınlıkları ve degrade matrisleri (FFDec XML'iyle sayısal) | 144 | 0 |
 | Tanımsız karakter başvurusu (dışarıda bırakılana 17 başvuru: oynatıcı atlar) | 49080 | 0 |
 | Sponsor ve üçüncü taraf izi (çizimlerin içerik özetiyle iki oyunda; yazılarda; kaynak/ kodunda) | 3209 | 0 |
-| Şekiller (resim dolgulular dahil): motorun çizimi FFDec'inkiyle piksel piksel (en kötü: %8.88 farklı, katı 556) | 2128 | 1 |
+| Şekiller (resim dolgulular dahil): motorun çizimi FFDec'inkiyle piksel piksel (en kötü: %8.88 farklı, katı 2) | 2128 | 0 |
 | Morph başlangıç ve bitişleri piksel piksel (en kötü: %0.53 farklı, katı 0) | 48 | 0 |
 | Çizilmiş yazıların Türkçe hâlleri, Türkçe SWF'nin çizimiyle (en kötü: %0.00 farklı, katı 0) | 1 | 0 |
 
-Sorunlar:
-
-- f2 şekil 1791: iç piksellerin %0.02'i belirgin farklı, katı farklı bölge 556 piksel
-
-Toplam sorun: 1.
+Toplam sorun: 0.
 
 ## Yöntem ve sınırlar
 
@@ -84,6 +82,8 @@ Toplam sorun: 1.
   görünür). Sınırın kendisi XML'deki iki ucun sınırıyla sayısal olarak ayrıca denetlenir. Uçların
   renkleri, saydamlıkları, çizgi kalınlıkları ve degrade matrisleri FFDec'in XML'iyle sayısal
   olarak karşılaştırılır.
+- FFDec'in bilinen çizim hataları (sorun sayılmaz; motorun çizimi SWF'nin verisine uyar):
+  - f2 şekil 1791: FFDec tekrarlı resim dolgusunu (0x42, resim 1789) dokunun satır sınırında, parke bölgesinin SWF'deki alt kenarından (y = 9795 twip = 489,75 px) 1,35 piksel önce kesiyor; Flash'ın kuralında doku kenara kadar sürer, motor da öyle çiziyor (Denetim 3, D3-4)
 - Resim dolgulu şekiller (zemin dokuları): kenarların kullandığı her resim dolgusunun SVG'deki desen
   matrisi SWF'deki dolgu matrisiyle, desenin resmi aktarılan resim dosyasıyla piksel piksel aynıdır;
   motorun çizimi (resim boyası) FFDec'in çizimiyle öbür şekiller gibi karşılaştırılır.

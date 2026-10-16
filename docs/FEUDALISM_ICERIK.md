@@ -21,7 +21,7 @@ Sahne 800×600 piksel, saniyede 30 kare, arka plan `#35567B`. Kaynak: `feudalism
 | Sabit yazı | 122 | 122 (yerleşimiyle; Türkçesiyle) | 0 |
 | Yazı alanı | 251 | 250 (bütün özellikleriyle) | 1 |
 | Yazı tipi | 15 | harf kodları; yerine açık lisanslı karşılığı | 15 (lisans yazı tipi yapımcısında) |
-| Türkçe çeviri | 122 sabit yazı, 143 kutu, 56 kod dosyası | `content/feudalism/f1/ceviri/` | – |
+| Türkçe çeviri | 122 sabit yazı, 143 kutu, 55 kod dosyası | `content/feudalism/f1/ceviri/` | – |
 | Oyun kodu | 29 sınıf, 612 dosya | `kaynak/feudalism/f1/kod` (oyuna gömülmez) | – |
 | Macromedia arayüz bileşeni | 0 | – | – |
 | Sponsor parçası | 2 kök sembol, altlarıyla 89 karakter | – | hepsi (sponsorun; oyunun ekranlarında kullanılanlar dahil) |
@@ -125,7 +125,7 @@ Kaynak: `swf-oyunlar/oyunlar/feudalism/ceviri` (oyunların sahibinin çevirisi).
 |---|---|---|
 | Sabit yazı | 122 | 122 |
 | Ekran kutusu | 143 | 250 |
-| Kod dosyası (ekranda görünen metinler) | 56 | – |
+| Kod dosyası (ekranda görünen metinler) | 55 | – |
 | Silah, zırh ve birlik adı | 280 | – |
 | Resim olarak çizilmiş yazı | 1 | – (kendiliğinden bulunamaz; bilinenler aşağıda) |
 
@@ -165,7 +165,7 @@ Sahne 800×600 piksel, saniyede 30 kare, arka plan `#35567B`. Kaynak: `feudalism
 | Sabit yazı | 104 | 104 (yerleşimiyle; Türkçesiyle) | 0 |
 | Yazı alanı | 194 | 184 (bütün özellikleriyle) | 10 |
 | Yazı tipi | 16 | harf kodları; yerine açık lisanslı karşılığı | 16 (lisans yazı tipi yapımcısında) |
-| Türkçe çeviri | 104 sabit yazı, 115 kutu, 62 kod dosyası | `content/feudalism/f2/ceviri/` | – |
+| Türkçe çeviri | 104 sabit yazı, 115 kutu, 61 kod dosyası | `content/feudalism/f2/ceviri/` | – |
 | Oyun kodu | 43 sınıf, 996 dosya | `kaynak/feudalism/f2/kod` (oyuna gömülmez) | – |
 | Macromedia arayüz bileşeni | 85 | – | hepsi (Adobe'nin; oyunda kullanılmıyor) |
 | Sponsor parçası | 14 kök sembol, altlarıyla 33 karakter | – | hepsi (sponsorun; oyunun ekranlarında kullanılanlar dahil) |
@@ -276,7 +276,7 @@ Kaynak: `swf-oyunlar/oyunlar/feudalism-2/ceviri` (oyunların sahibinin çevirisi
 |---|---|---|
 | Sabit yazı | 104 | 104 |
 | Ekran kutusu | 115 | 184 |
-| Kod dosyası (ekranda görünen metinler) | 62 | – |
+| Kod dosyası (ekranda görünen metinler) | 61 | – |
 | Silah, zırh ve birlik adı | 543 | – |
 | Resim olarak çizilmiş yazı | 1 | – (kendiliğinden bulunamaz; bilinenler aşağıda) |
 

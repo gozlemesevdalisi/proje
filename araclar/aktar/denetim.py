@@ -34,7 +34,9 @@ import ceviri  # noqa: E402
 import swf  # noqa: E402
 
 ROOT = aktar.ROOT
-TOL = 1e-3  # sayısal karşılaştırma payı (JSON'da 4 basamağa yuvarlanır)
+# Sayısal karşılaştırma payı: library.json 6 ondalık yazar (16.16 değer bundan geri kurulur); pay bunun
+# yuvarlama hatasının biraz üstünde, 4 ondalığa yuvarlanmış bir değeri yakalar (D3-3)
+TOL = 1e-6
 XML_NAME = {"CSMSettings": "CSMTextSettings"}
 
 
@@ -67,7 +69,8 @@ FILTER_TYPES = {"DROPSHADOWFILTER": "drop_shadow", "BLURFILTER": "blur", "GLOWFI
 
 
 def xml_rgba(el):
-    return [int(el.get(k, "0")) for k in ("red", "green", "blue", "alpha")]
+    """RGB ya da RGBA öğesi → [r, g, b, a] (RGB'de saydamlık 255)."""
+    return [int(el.get(k, "255" if k == "alpha" else "0")) for k in ("red", "green", "blue", "alpha")]
 
 
 # XML süzgeç türü → (bizim tür, {XML özniteliği: bizim alan}, {XML alt öğesi (renk): bizim alan})
@@ -194,11 +197,12 @@ class XmlDump:
         self.jpeg_tables = b""
         self.morph_bounds = {}
         self.morph_styles = {}
+        self.shape_styles = {}
         self.text_meta = {}  # sabit yazı → {bounds, matrix}
         self.edit_text_full = {}
         self.code_keys = {}  # kod parçasının yeri (FFDec betik dökümündeki gibi) → sayı
         self.init_actions = []  # DoInitAction'ların sprite kimlikleri (dışa aktarılan adları sonra çözülür)
-        self.bitmap_fills = {}  # şekil → [(resim kimliği, desen matrisi piksel biriminde)]
+        self.bitmap_fills = {}  # şekil → [(resim kimliği, desen matrisi piksel biriminde, dolgu türü)]
         self.scripts = {"DoAction": 0, "DoInitAction": 0, "BUTTONCONDACTION": 0, "CLIPACTIONRECORD": 0}
         self.root_counts = {}
         depth = 0
@@ -243,6 +247,7 @@ class XmlDump:
                 break
         if kind.startswith("DefineShape"):
             self.chars[cid] = "shape"
+            self.shape_styles[cid] = xml_shape_styles(el)
             fills = bitmap_fills(el)
             if fills:
                 self.bitmap_fills[cid] = fills
@@ -334,7 +339,8 @@ def fill_style_items(parent):
 
 def bitmap_fills(el):
     """Şeklin kenarlarının kullandığı resim dolguları: [(resim kimliği, [a, b, c, d, tx, ty])]. Stil
-    değişim kaydı yeni stil dizisi getirebilir; sonraki dolgu numaraları o diziyi gösterir. SWF'de dolgu
+    değişim kaydı yeni stil dizisi getirebilir; sonraki dolgu numaraları o diziyi gösterir. Üçüncü öğe dolgu
+    türüdür (0x40 tekrarlı, 0x41 kırpılmış, 0x42/0x43 yumuşatmasız). SWF'de dolgu
     matrisi resim pikselini twip'e taşır; 20'ye bölünce SVG desen matrisi (piksel) çıkar. Hiçbir kenarın
     kullanmadığı dolgu (ör. "resim yok" anlamındaki 65535) çizilmez, listeye girmez."""
     shapes = el.find("shapes")
@@ -359,7 +365,7 @@ def bitmap_fills(el):
         fs = arrays[a][i]
         if int(fs.get("fillStyleType", "0")) in BITMAP_FILL_TYPES:
             m = xml_matrix(fs.find("bitmapMatrix"))
-            out.append((int(fs.get("bitmapId")), [v / 20 for v in m[:4]] + m[4:]))
+            out.append((int(fs.get("bitmapId")), [v / 20 for v in m[:4]] + m[4:], int(fs.get("fillStyleType"))))
     return out
 
 
@@ -408,7 +414,8 @@ def xml_morph_fill(f):
         return {"type": "solid", "start": xml_rgba(f.find("startColor")), "end": xml_rgba(f.find("endColor"))}
     if t in (0x10, 0x12, 0x13):
         recs = list(f.find("gradient").find("gradientRecords"))
-        out = {"type": {0x10: "linear", 0x12: "radial", 0x13: "focal"}[t]}
+        out = {"type": {0x10: "linear", 0x12: "radial", 0x13: "focal"}[t],
+               "spread": int(f.find("gradient").get("spreadMode", "0"))}
         for end in ("start", "end"):
             out[end] = {"matrix": xml_matrix(f.find(f"{end}GradientMatrix")),
                         "stops": [[int(r.get(f"{end}Ratio")), xml_rgba(r.find(f"{end}Color"))] for r in recs]}
@@ -416,6 +423,27 @@ def xml_morph_fill(f):
     return {"type": "bitmap", "bitmap": int(f.get("bitmapId")),
             "start": {"matrix": xml_matrix(f.find("startBitmapMatrix"))},
             "end": {"matrix": xml_matrix(f.find("endBitmapMatrix"))}}
+
+
+def xml_shape_styles(el):
+    """XML şeklinin bütün dolgu ve çizgi stilleri (yeni stil dizileri dahil), morph stilleriyle aynı biçimde
+    ama tek uçlu ("start")."""
+    fills, lines = [], []
+    for item in el.iter("item"):
+        t = item.get("type")
+        if t == "FILLSTYLE":
+            kind = int(item.get("fillStyleType"))
+            if kind == 0:
+                fills.append({"type": "solid", "start": xml_rgba(item.find("color"))})
+            elif kind in (0x10, 0x12, 0x13):
+                recs = list(item.find("gradient").find("gradientRecords"))
+                fills.append({"type": {0x10: "linear", 0x12: "radial", 0x13: "focal"}[kind],
+                              "spread": int(item.find("gradient").get("spreadMode", "0")),
+                              "start": {"matrix": xml_matrix(item.find("gradientMatrix")),
+                                        "stops": [[int(r.get("ratio")), xml_rgba(r.find("color"))] for r in recs]}})
+        elif t in ("LINESTYLE", "LINESTYLE2") and item.find("color") is not None:
+            lines.append({"start": {"width": int(item.get("width")) / 20, "color": xml_rgba(item.find("color"))}})
+    return {"fills": fills, "lines": lines}
 
 
 def xml_morph_styles(el):
@@ -522,7 +550,7 @@ def close(a, b):
     if isinstance(a, bool) or isinstance(b, bool):
         return type(a) is type(b) and a == b
     if isinstance(a, (int, float)) and isinstance(b, (int, float)):
-        return abs(a - b) <= TOL * max(1.0, abs(b))
+        return abs(a - b) <= TOL * max(1.0, abs(b)) + 1e-12
     return a == b
 
 
@@ -555,7 +583,8 @@ def same_op(ours, theirs):
         if k == "filters":
             if not same_filters(ours.get(k, []), theirs.get(k, [])):
                 return f"süzgeç: bizim {ours.get(k)} / FFDec {theirs.get(k)}"
-        elif k in IDENTITY:
+        elif k in IDENTITY and not theirs.get("move"):
+            # Yeni yerleştirmede eksik matris/renk dönüşümü birimdir; taşımada "değişmedi" demektir (D3-1)
             a = ours.get(k, IDENTITY[k] if k in theirs else None)
             b = theirs.get(k, IDENTITY[k] if k in ours else None)
             if not close(a, b):
@@ -732,12 +761,19 @@ def check_game(game, visual):
         sum(lib.get("translation", {}).get("counts", {}).get(k, 0) for k in ("texts", "edit_texts", "drawn_texts")),
         g_probs)
     checked, c_probs = code_translation_problems(game, swf_root)
+    tr_files = sum(len(n) for _, _, n in os.walk(os.path.join(ROOT, "kaynak", "feudalism", game, "kod-tr")))
+    if lib.get("translation", {}).get("counts", {}).get("code_files") != tr_files:
+        c_probs.append(f"{game} çevrilmiş kod sayısı library.json'da "
+                       f"{lib['translation']['counts'].get('code_files')}, kod-tr altında {tr_files}")
     row("Koddaki çeviriler (çevrilen koddaki her yeni dize sahibinin Türkçe SWF'sinin bayt kodunda)", checked,
         c_probs)
     row("Yazı tiplerinin açık lisanslı karşılıkları (dosya kaynağıyla aynı, lisansı yanında)", len(texts["fonts"]),
         f_probs)
     row("Morph sınırları (iki ucun SWF'deki sınırlarının birleşimi)", len(lib["morphs"]),
         morph_bounds_problems(game, lib, dump))
+    checked, probs = shape_style_problems(game, lib, dump)
+    row("Şekillerin renkleri, saydamlıkları, çizgi kalınlıkları, degrade matrisleri ve durakları (FFDec XML'iyle "
+        "sayısal)", checked, probs)
     checked, probs = morph_style_problems(game, lib, dump)
     row("Morph uçlarının renkleri, saydamlıkları, çizgi kalınlıkları ve degrade matrisleri (FFDec XML'iyle sayısal)",
         checked, probs)
@@ -894,14 +930,15 @@ PATTERN = re.compile(r"<pattern\b.*?</pattern>", re.S)
 
 
 def svg_patterns(svg):
-    """SVG'deki desenler: [(desen matrisi, desenin resim baytları)]."""
+    """SVG'deki desenler: [(desen matrisi, desenin resim baytları, desen kimliği)]."""
     out = []
     for m in PATTERN.finditer(svg):
         tag = m.group(0)
         mat = re.search(r'patternTransform="matrix\(([^)]*)\)"', tag)
         data = re.search(r"base64,([A-Za-z0-9+/=]+)", tag)
+        pid = re.search(r'\bid="([^"]*)"', tag)
         out.append(([float(v) for v in mat.group(1).split(",")] if mat else [1.0, 0.0, 0.0, 1.0, 0.0, 0.0],
-                    base64.b64decode(data.group(1)) if data else b""))
+                    base64.b64decode(data.group(1)) if data else b"", pid.group(1) if pid else ""))
     return out
 
 
@@ -936,13 +973,16 @@ def bitmap_shape_problems(game, lib, dump):
         with open(os.path.join(content, "shapes-bitmap", f"{sid}.svg"), encoding="utf-8") as f:
             patterns = svg_patterns(f.read())
         used = set()
-        for k, (matrix, data) in enumerate(patterns, 1):
-            match = [i for i, (_, m) in enumerate(fills) if close(m, matrix)]
+        for k, (matrix, data, pid) in enumerate(patterns, 1):
+            match = [i for i, (_, m, _) in enumerate(fills) if close(m, matrix)]
             if not match:
                 probs.append(f"{game} şekil {sid} desen {k}: matrisi SWF'deki hiçbir resim dolgusuna uymuyor")
                 continue
             used.update(match)
-            bid = fills[match[0]][0]
+            bid, _, kind = fills[match[0]]
+            # Dolgunun türü desenin kimliğindeki ekle aynı mı (motor türü oradan okur)
+            if ("-kirp" in pid) != bool(kind & 1) or ("-yumusak" in pid) != (kind < 0x42):
+                probs.append(f"{game} şekil {sid} desen {k}: kimliği {pid!r}, SWF'deki dolgu türü {kind:#x}")
             rel = lib["images"].get(str(bid))
             if rel is None:
                 probs.append(f"{game} şekil {sid} desen {k}: resim {bid} aktarılmamış")
@@ -953,6 +993,15 @@ def bitmap_shape_problems(game, lib, dump):
         probs += [f"{game} şekil {sid}: SWF'deki resim dolgusu {i + 1} (resim {fills[i][0]}) SVG'de yok"
                   for i in range(len(fills)) if i not in used]
     return probs
+
+
+# FFDec'in kendi çizim hataları: motorun çizimi SWF'nin verisine ve Flash'ın kuralına uyuyor, FFDec'inki
+# uymuyor. Bunlar sorun sayılmaz, raporda gerekçesiyle listelenir.
+KNOWN_FFDEC_ERRORS = {
+    "f2 şekil 1791": "FFDec tekrarlı resim dolgusunu (0x42, resim 1789) dokunun satır sınırında, parke "
+                     "bölgesinin SWF'deki alt kenarından (y = 9795 twip = 489,75 px) 1,35 piksel önce kesiyor; "
+                     "Flash'ın kuralında doku kenara kadar sürer, motor da öyle çiziyor (Denetim 3, D3-4)",
+}
 
 
 def rendered_difference(pair):
@@ -987,6 +1036,8 @@ def compare_rendered(pairs, search=False):
             probs.append(f"{name}: {result}")
             continue
         ratio, solid = result
+        if name in KNOWN_FFDEC_ERRORS:
+            continue
         worst = (max(worst[0], ratio), max(worst[1], solid))
         if ratio > INK_LIMIT or solid > SOLID_LIMIT:
             probs.append(f"{name}: iç piksellerin %{ratio:.2f}'i belirgin farklı, katı farklı bölge {solid} piksel")
@@ -1219,13 +1270,15 @@ def svg_styles(svg):
         if tag in ("linearGradient", "radialGradient"):
             stops = [(float(st.get("offset")), st.get("stop-color", "").lower(), float(st.get("stop-opacity", "1")))
                      for st in el if st.tag.split("}")[-1] == "stop"]
-            out.append(("gradient", (tag, aktar.parse_matrix(el.get("gradientTransform")), stops)))
+            spread = {"pad": 0, "reflect": 1, "repeat": 2}.get(el.get("spreadMethod", "pad"), -1)
+            out.append(("gradient", (tag, aktar.parse_matrix(el.get("gradientTransform")), stops, spread)))
         elif tag == "path":
             if el.get("fill", "none").startswith("#"):
                 out.append(("fill", (el.get("fill").lower(), float(el.get("fill-opacity", "1")))))
             if el.get("stroke", "none").startswith("#"):
-                out.append(("line", (el.get("stroke").lower(), float(el.get("stroke-opacity", "1")),
-                                     float(el.get("stroke-width", "1")))))
+                # İnce çizgide SVG'deki kalınlık ekran içindir; özgün kalınlık işaretinde
+                width = el.get("data-original-stroke-width") or el.get("stroke-width", "1")
+                out.append(("line", (el.get("stroke").lower(), float(el.get("stroke-opacity", "1")), float(width))))
     return out
 
 
@@ -1233,10 +1286,10 @@ def style_matches(kind, value, styles, end):
     """SVG'deki stil, XML'deki stillerden birinin `end` ucuyla aynı mı (matris 6 ondalığa yuvarlanmış)."""
     hexc = aktar.hex_colour
     if kind == "gradient":
-        tag, matrix, stops = value
+        tag, matrix, stops, spread = value
         types = ("linear",) if tag == "linearGradient" else ("radial", "focal")
         for f in styles["fills"]:
-            if f["type"] not in types or len(f[end]["stops"]) != len(stops):
+            if f["type"] not in types or len(f[end]["stops"]) != len(stops) or f.get("spread", spread) != spread:
                 continue
             if any(abs(a - b) > 1e-6 for a, b in zip(matrix, f[end]["matrix"])):
                 continue
@@ -1251,6 +1304,23 @@ def style_matches(kind, value, styles, end):
     colour, op, width = value
     return any("color" in line[end] and colour == hexc(line[end]["color"]) and abs(op - line[end]["color"][3] / 255)
                < 1e-6 and abs(width - line[end]["width"]) < 1e-6 for line in styles["lines"])
+
+
+def shape_style_problems(game, lib, dump):
+    """Şekillerin her stili (düz renk ve saydamlık, çizgi rengi ve kalınlığı, degrade matrisi ve durakları)
+    FFDec XML'indeki o şeklin stillerinden biriyle sayısal olarak aynı mı (D3-3). Dönen: (denetlenen stil
+    sayısı, sorunlar)."""
+    checked, probs = 0, []
+    content = os.path.join(ROOT, "content", "feudalism", game)
+    for folder, ids in (("shapes", lib["shapes"]), ("shapes-bitmap", lib["bitmap_shapes"])):
+        for sid in ids:
+            with open(os.path.join(content, folder, f"{sid}.svg"), encoding="utf-8") as f:
+                styles = svg_styles(f.read())
+            for kind, value in styles:
+                checked += 1
+                if not style_matches(kind, value, dump.shape_styles[int(sid)], "start"):
+                    probs.append(f"{game} şekil {sid}: {kind} {value} SWF'deki hiçbir stile uymuyor")
+    return checked, probs
 
 
 def morph_style_problems(game, lib, dump):
@@ -1294,7 +1364,7 @@ def body_digest(body):
     return hashlib.sha256(body[2:]).hexdigest()
 
 
-SPONSOR_WORDS = re.compile(r"arcadetown|newgrounds|mochibot|mochiad|mochimedia", re.I)
+SPONSOR_WORDS = re.compile(r"arcadetown|newgrounds|armorgames|addictinggames|mochibot|mochiad|mochimedia", re.I)
 
 
 def third_party_traces(game, lib, texts):
@@ -1423,6 +1493,8 @@ def main(argv):
             "  görünür). Sınırın kendisi XML'deki iki ucun sınırıyla sayısal olarak ayrıca denetlenir. Uçların",
             "  renkleri, saydamlıkları, çizgi kalınlıkları ve degrade matrisleri FFDec'in XML'iyle sayısal",
             "  olarak karşılaştırılır.",
+            "- FFDec'in bilinen çizim hataları (sorun sayılmaz; motorun çizimi SWF'nin verisine uyar):",
+            *[f"  - {k}: {v}" for k, v in KNOWN_FFDEC_ERRORS.items()],
             "- Resim dolgulu şekiller (zemin dokuları): kenarların kullandığı her resim dolgusunun SVG'deki desen",
             "  matrisi SWF'deki dolgu matrisiyle, desenin resmi aktarılan resim dosyasıyla piksel piksel aynıdır;",
             "  motorun çizimi (resim boyası) FFDec'in çizimiyle öbür şekiller gibi karşılaştırılır.",

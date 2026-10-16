@@ -208,8 +208,8 @@ class BitmapFillTest(unittest.TestCase):
         # 65535 ("resim yok") birinci dizide durur ama hiçbir kenar kullanmaz; düz renk dolgusu resim değildir;
         # yeni stil dizisinden sonraki numaralar yeni diziyi gösterir.
         self.assertEqual(denetim.bitmap_fills(el(BITMAP_SHAPE)), [
-            (7, [0.5, 0.0, -0.1, 1.0, 10.0, -2.0]),
-            (8, [0.05, 0.0, 0.0, 0.05, 1.0, 1.0]),
+            (7, [0.5, 0.0, -0.1, 1.0, 10.0, -2.0], 64),
+            (8, [0.05, 0.0, 0.0, 0.05, 1.0, 1.0], 67),
         ])
         self.assertEqual(denetim.bitmap_fills(el('<item type="DefineShapeTag"/>')), [])
 
@@ -217,8 +217,8 @@ class BitmapFillTest(unittest.TestCase):
         svg = ('<svg><pattern id="P" patternTransform="matrix(0.5, 0.0, -0.1, 1.0, 10.0, -2.0)">'
                '<image xlink:href="data:image/PNG;base64,' + base64.b64encode(b"abc").decode() + '"/></pattern>'
                '<pattern id="Q"></pattern></svg>')
-        self.assertEqual(denetim.svg_patterns(svg), [([0.5, 0.0, -0.1, 1.0, 10.0, -2.0], b"abc"),
-                                                     ([1.0, 0.0, 0.0, 1.0, 0.0, 0.0], b"")])
+        self.assertEqual(denetim.svg_patterns(svg), [([0.5, 0.0, -0.1, 1.0, 10.0, -2.0], b"abc", "P"),
+                                                     ([1.0, 0.0, 0.0, 1.0, 0.0, 0.0], b"", "Q")])
 
     def test_image_difference_is_largest_channel_difference(self):
         a = Image.new("RGB", (2, 2), (10, 20, 30))
@@ -233,8 +233,8 @@ class BitmapFillTest(unittest.TestCase):
         other = Image.new("RGB", (2, 2), (0, 0, 0))
         m = [0.5, 0.0, -0.1, 1.0, 10.0, -2.0]
 
-        def pattern(matrix, im):
-            return (f'<pattern patternTransform="matrix({", ".join(map(str, matrix))})">'
+        def pattern(matrix, im, pid="P-yumusak"):
+            return (f'<pattern id="{pid}" patternTransform="matrix({", ".join(map(str, matrix))})">'
                     f'<image xlink:href="data:image/PNG;base64,{base64.b64encode(png_bytes(im)).decode()}"/>'
                     '</pattern>')
         old_root = denetim.ROOT
@@ -248,19 +248,25 @@ class BitmapFillTest(unittest.TestCase):
                 with open(os.path.join(base, "shapes-bitmap", "5.svg"), "w", encoding="utf-8") as f:
                     f.write("<svg>" + pattern(m, texture) + "</svg>")
                 lib = {"excluded": {}, "bitmap_shapes": {"5": [0, 0]}, "images": {"7": "images/7.png"}}
-                dump = types.SimpleNamespace(bitmap_fills={5: [(7, m)]})
+                dump = types.SimpleNamespace(bitmap_fills={5: [(7, m, 0x40)]})
                 self.assertEqual(denetim.bitmap_shape_problems("t", lib, dump), [])
                 # Aktarılmamış resim dolgulu şekil, uymayan matris, farklı resim
-                dump.bitmap_fills[11] = [(7, m)]
+                dump.bitmap_fills[11] = [(7, m, 0x40)]
                 with open(os.path.join(base, "shapes-bitmap", "5.svg"), "w", encoding="utf-8") as f:
                     f.write("<svg>" + pattern([1, 0, 0, 1, 0, 0], texture) + pattern(m, other) + "</svg>")
                 probs = denetim.bitmap_shape_problems("t", lib, dump)
+                # Desenin türü SWF'deki dolgu türüyle aynı değil (D3-3): SWF tekrarlı yumuşatmalı, desen kırpılmış
+                with open(os.path.join(base, "shapes-bitmap", "5.svg"), "w", encoding="utf-8") as f:
+                    f.write("<svg>" + pattern(m, texture, "P-kirp") + "</svg>")
+                kind = denetim.bitmap_shape_problems("t", lib, types.SimpleNamespace(bitmap_fills={5: [(7, m, 0x40)]}))
             finally:
                 denetim.ROOT = old_root
         self.assertEqual(len(probs), 3, probs)
         self.assertIn("şekil 11", probs[0])
         self.assertIn("desen 1: matrisi", probs[1])
         self.assertIn("desen 2: resmi", probs[2])
+        self.assertEqual(len(kind), 1, kind)
+        self.assertIn("dolgu türü", kind[0])
 
 
 class ComparisonTest(unittest.TestCase):
@@ -272,12 +278,50 @@ class ComparisonTest(unittest.TestCase):
         self.assertEqual(denetim.xml_unescape("a\\rb\\nc\\td\\\\e\\x"), "a\rb\nc\td\\ex")
 
     def test_close_compares_numbers_with_tolerance_and_lists_by_item(self):
-        self.assertTrue(denetim.close(1.0, 1.0005))
-        self.assertFalse(denetim.close(1.0, 1.01))
+        # 6 ondalık yuvarlama payı geçer; 4 ondalığa yuvarlanmış 16.16 değer geçmez (D3-3)
+        self.assertTrue(denetim.close(0.137909, 9038 / 65536))
+        self.assertFalse(denetim.close(0.1379, 9038 / 65536))
+        self.assertFalse(denetim.close(1.0, 1.0005))
         self.assertTrue(denetim.close([1, [2.0, 3]], [1.0, [2.0, 3.0]]))
         self.assertFalse(denetim.close([1, 2], [1]))
         self.assertTrue(denetim.close("a", "a"))
         self.assertFalse(denetim.close(True, 1.0))
+
+    def test_missing_matrix_on_move_is_not_identity(self):
+        # D3-1: taşımada eksik matris "değişmedi" demektir; SWF birim matris veriyorsa ("başlangıca dön") fark
+        identity = [1.0, 0.0, 0.0, 1.0, 0.0, 0.0]
+        self.assertIsNotNone(denetim.same_op({"depth": 1, "move": True}, {"depth": 1, "move": True, "matrix": identity}))
+        self.assertIsNotNone(denetim.same_op({"depth": 1, "move": True},
+                                             {"depth": 1, "move": True, "cxform": [[1.0] * 4, [0.0] * 4]}))
+        self.assertIsNone(denetim.same_op({"depth": 1, "move": True, "matrix": identity},
+                                          {"depth": 1, "move": True, "matrix": identity}))
+
+    def test_shape_styles_are_compared_exactly(self):
+        # D3-3: şeklin rengi, çizgisi ve degradesi SWF'dekiyle sayısal karşılaştırılır
+        styles = denetim.xml_shape_styles(el(
+            '<item type="DefineShape3Tag"><shapes><fillStyles><fillStyles>'
+            '<item type="FILLSTYLE" fillStyleType="0"><color type="RGBA" red="153" green="0" blue="0" alpha="128"/></item>'
+            '<item type="FILLSTYLE" fillStyleType="16"><gradientMatrix hasScale="true" scaleX="0.137908935546875" '
+            'scaleY="0.5" hasRotate="false" translateX="20" translateY="0"/><gradient type="GRADIENT" spreadMode="0">'
+            '<gradientRecords><item type="GRADRECORD" ratio="0"><color type="RGB" red="0" green="0" blue="0"/></item>'
+            '</gradientRecords></gradient></item></fillStyles></fillStyles>'
+            '<lineStyles><lineStyles><item type="LINESTYLE" width="40"><color type="RGB" red="255" green="0" blue="0"/>'
+            '</item></lineStyles></lineStyles></shapes></item>'))
+        ok = denetim.svg_styles(
+            '<svg xmlns="http://www.w3.org/2000/svg"><path fill="#990000" fill-opacity="0.5019608" stroke="#ff0000" '
+            'stroke-width="2.0"/><linearGradient gradientTransform="matrix(0.137909, 0.0, 0.0, 0.5, 1.0, 0.0)">'
+            '<stop offset="0.0" stop-color="#000000"/></linearGradient></svg>')
+        self.assertTrue(all(denetim.style_matches(k, v, styles, "start") for k, v in ok))
+        for wrong in ('<path fill="#990001" fill-opacity="0.5019608"/>', '<path stroke="#ff0000" stroke-width="2.05"/>',
+                      '<linearGradient gradientTransform="matrix(0.1379, 0.0, 0.0, 0.5, 1.0, 0.0)">'
+                      '<stop offset="0.0" stop-color="#000000"/></linearGradient>',
+                      '<linearGradient spreadMethod="reflect" gradientTransform="matrix(0.137909, 0.0, 0.0, 0.5, 1.0, 0.0)">'
+                      '<stop offset="0.0" stop-color="#000000"/></linearGradient>'):
+            ((k, v),) = denetim.svg_styles(f'<svg xmlns="http://www.w3.org/2000/svg">{wrong}</svg>')
+            self.assertFalse(denetim.style_matches(k, v, styles, "start"), wrong)
+
+    def test_known_ffdec_error_is_not_a_problem(self):
+        self.assertIn("f2 şekil 1791", denetim.KNOWN_FFDEC_ERRORS)
 
     def test_filters_are_compared_field_by_field(self):
         # Önceden yalnız türüne bakılıyordu: gücü ya da geçiş sayısı farklı süzgeç fark edilmiyordu
