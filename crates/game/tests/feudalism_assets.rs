@@ -13,11 +13,14 @@ use engine::text::Font;
 fn every_imported_shape_loads_and_tessellates() {
     let mut count = 0;
     let mut failures = Vec::new();
-    // Vektör şekiller ve morph şekillerin başlangıç / bitiş hâlleri motorca çizilir. Resim dolgulu
-    // şekiller (shapes-bitmap) ve canlandırmalı özgün morph dosyaları henüz çizilmez.
+    // Vektör şekiller, resim dolgulu şekiller ve morph şekillerin başlangıç / bitiş hâlleri motorca
+    // çizilir. Canlandırmalı özgün morph dosyaları (FFDec'in SVG'si) çizilmez.
     let drawable = |n: &str| {
         n.starts_with("feudalism/")
-            && (n.contains("/shapes/") || n.ends_with(".start.svg") || n.ends_with(".end.svg"))
+            && (n.contains("/shapes/")
+                || n.contains("/shapes-bitmap/")
+                || n.ends_with(".start.svg")
+                || n.ends_with(".end.svg"))
     };
     for (name, data) in EMBEDDED.iter().filter(|(n, _)| drawable(n)) {
         count += 1;

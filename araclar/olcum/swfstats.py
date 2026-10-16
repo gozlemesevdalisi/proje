@@ -113,7 +113,8 @@ def fillstyle(b, ver):
     if 0x40 <= t <= 0x43:
         bid = b.u16()
         m = matrix(b)
-        return {'type': 'bitmap', 'id': bid, 'matrix': m}
+        # 0x40 tekrarlı, 0x41 kırpılmış, 0x42/0x43 aynıları yumuşatmasız
+        return {'type': 'bitmap', 'id': bid, 'matrix': m, 'clip': bool(t & 1), 'smooth': t < 0x42}
     raise ValueError('fill type %x' % t)
 
 

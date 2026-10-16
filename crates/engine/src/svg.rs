@@ -5,6 +5,7 @@
 //! atlanmaz; açık bir hata verilir. Böylece çizimdeki bir yanlışlık hemen fark edilir.
 
 use std::fmt;
+use std::sync::Arc;
 
 use glam::{Affine2, Vec2};
 use lyon_tessellation::math::point;
@@ -12,7 +13,8 @@ use lyon_tessellation::path::Path;
 use usvg::tiny_skia_path::PathSegment;
 
 use crate::color::Color;
-use crate::paint::{Gradient, GradientKind, GradientStop, Paint, Spread};
+use crate::image::RgbaImage;
+use crate::paint::{Gradient, GradientKind, GradientStop, ImagePaint, Paint, Spread};
 use crate::shape::{
     Fill, FillRule, LineCap, LineJoin, Shape, Stroke, VectorImage, transform_scale,
 };
@@ -235,8 +237,47 @@ fn convert_paint(
             spread: convert_spread(g.spread_method()),
             transform: t * affine(g.transform()),
         }),
-        usvg::Paint::Pattern(_) => return Err(unsupported("desen", id)),
+        usvg::Paint::Pattern(p) => Paint::Image(pattern_image(p, t, opacity, id)?),
     })
+}
+
+fn find_image(group: &usvg::Group) -> Option<&usvg::Image> {
+    group.children().iter().find_map(|node| match node {
+        usvg::Node::Image(i) => Some(i.as_ref()),
+        usvg::Node::Group(g) => find_image(g),
+        _ => None,
+    })
+}
+
+/// FFDec'in resim dolgusu deseni: içinde tek bir PNG resmi olan desen. Desen kimliğindeki "-kirp"
+/// kırpılmış dolgu (kenar uzar), "-yumusak" yumuşatmalı okuma demektir (aktarım aracı yazar).
+fn pattern_image(
+    p: &usvg::Pattern,
+    t: Affine2,
+    opacity: f32,
+    id: &str,
+) -> Result<ImagePaint, SvgError> {
+    let image = find_image(p.root()).ok_or_else(|| unsupported("resimsiz desen", id))?;
+    let usvg::ImageKind::PNG(data) = image.kind() else {
+        return Err(unsupported("PNG olmayan desen resmi", id));
+    };
+    let decoded = RgbaImage::decode_png(data).map_err(|e| SvgError::Parse(e.to_string()))?;
+    if decoded.width == 0 || decoded.height == 0 {
+        return Err(unsupported("boş desen resmi", id));
+    }
+    let size = image.size();
+    let pixel = Affine2::from_scale(Vec2::new(
+        size.width() / decoded.width as f32,
+        size.height() / decoded.height as f32,
+    ));
+    let mut paint = ImagePaint::new(
+        Arc::new(decoded),
+        t * affine(p.transform()) * affine(image.abs_transform()) * pixel,
+        p.id().contains("-kirp"),
+        p.id().contains("-yumusak"),
+    );
+    paint.opacity = opacity;
+    Ok(paint)
 }
 
 #[cfg(test)]
@@ -343,7 +384,7 @@ mod tests {
             ),
             (
                 r#"<defs><pattern id="p" width="4" height="4" patternUnits="userSpaceOnUse"><rect width="2" height="2"/></pattern></defs><rect width="10" height="10" fill="url(#p)"/>"#,
-                "desen",
+                "resimsiz desen",
             ),
         ];
         for (body, what) in cases {
@@ -357,5 +398,59 @@ mod tests {
     #[test]
     fn invalid_svg_is_a_parse_error() {
         assert!(matches!(load_svg(b"<svg"), Err(SvgError::Parse(_))));
+    }
+
+    fn base64(data: &[u8]) -> String {
+        const T: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+        let mut out = String::new();
+        for c in data.chunks(3) {
+            let n = (u32::from(c[0]) << 16)
+                | (u32::from(*c.get(1).unwrap_or(&0)) << 8)
+                | u32::from(*c.get(2).unwrap_or(&0));
+            for k in 0..4 {
+                if k <= c.len() {
+                    out.push(T[((n >> (18 - 6 * k)) & 63) as usize] as char);
+                } else {
+                    out.push('=');
+                }
+            }
+        }
+        out
+    }
+
+    #[test]
+    fn ffdec_pattern_becomes_image_paint_with_its_mode() {
+        // FFDec'in resim dolgusu: desen kimliğindeki "-kirp" kırpılmış dolgu, "-yumusak" yumuşatmalı demektir
+        let mut img = crate::image::RgbaImage::new(2, 1);
+        img.set_pixel(0, 0, [255, 0, 0, 255]);
+        img.set_pixel(1, 0, [0, 0, 255, 255]);
+        let png = base64(&img.encode_png().unwrap());
+        let doc = |id: &str| {
+            svg(&format!(
+                r##"<pattern id="{id}" width="2" height="1" patternUnits="userSpaceOnUse" overflow="visible" viewBox="0 0 2 1" patternTransform="matrix(10, 0, 0, 10, 5, 0)"><image width="2" height="1" xlink:href="data:image/PNG;base64,{png}"/></pattern><path d="M0 0 L100 0 L100 50 L0 50 Z" style="fill:url(#{id})"/>"##
+            ))
+            .replace("<svg ", r#"<svg xmlns:xlink="http://www.w3.org/1999/xlink" "#)
+        };
+        let shape = load_svg(doc("PatternID_5_1-kirp").as_bytes()).unwrap();
+        let Paint::Image(p) = &shape.shapes[0].fill.as_ref().unwrap().paint else {
+            panic!("resim boyası bekleniyordu");
+        };
+        assert!(p.clip && !p.smooth);
+        assert_eq!(p.image.width, 2);
+        assert_eq!(p.sample(Vec2::new(6.0, 5.0)).to_rgba8(), [255, 0, 0, 255]);
+        assert_eq!(p.sample(Vec2::new(16.0, 5.0)).to_rgba8(), [0, 0, 255, 255]);
+        // Kırpılmış: resmin sağı mavi kalır; tekrarlı: kırmızı yeniden başlar
+        assert_eq!(p.sample(Vec2::new(30.0, 5.0)).to_rgba8(), [0, 0, 255, 255]);
+        let repeat = load_svg(doc("PatternID_5_1").as_bytes()).unwrap();
+        let Paint::Image(r) = &repeat.shapes[0].fill.as_ref().unwrap().paint else {
+            panic!()
+        };
+        assert!(!r.clip);
+        assert_eq!(r.sample(Vec2::new(30.0, 5.0)).to_rgba8(), [255, 0, 0, 255]);
+        let smooth = load_svg(doc("PatternID_5_1-kirp-yumusak").as_bytes()).unwrap();
+        let Paint::Image(m) = &smooth.shapes[0].fill.as_ref().unwrap().paint else {
+            panic!()
+        };
+        assert!(m.clip && m.smooth);
     }
 }

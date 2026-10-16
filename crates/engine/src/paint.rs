@@ -1,12 +1,15 @@
-//! Boyalar: düz renk ve degradeler.
+//! Boyalar: düz renk, degradeler ve resim (Flash'ın resim dolgusu).
 //!
 //! Degradeler GPU'da 256 öğelik bir renk şeridinden (rampa) okunur; şerit sRGB uzayında,
 //! önceden çarpılmış saydamlıkla üretilir. Bu modüldeki [`Gradient::sample`] işlevi,
 //! gölgelendiricinin yaptığı hesabın işlemcideki karşılığıdır; testlerde kıyas için kullanılır.
 
+use std::sync::Arc;
+
 use glam::{Affine2, Vec2};
 
 use crate::color::Color;
+use crate::image::RgbaImage;
 
 /// Bir degrade rampasındaki öğe sayısı.
 pub const RAMP_WIDTH: usize = 256;
@@ -253,11 +256,77 @@ impl Gradient {
     }
 }
 
+/// Resim boyası (Flash'ın resim dolgusu).
+#[derive(Clone, Debug, PartialEq)]
+pub struct ImagePaint {
+    /// Düz (saydamlıkla çarpılmamış) RGBA resim.
+    pub image: Arc<RgbaImage>,
+    /// Resmin içeriğinin özeti (aynı resim grafik kartında bir kez durur).
+    pub hash: u64,
+    /// Resmin piksel koordinatlarından şeklin koordinatlarına dönüşüm.
+    pub transform: Affine2,
+    /// Kırpılmış: resmin dışında kenar pikselleri uzar. Değilse resim tekrar eder.
+    pub clip: bool,
+    /// Yumuşatmalı (çift doğrusal) okuma; değilse en yakın piksel.
+    pub smooth: bool,
+    pub opacity: f32,
+}
+
+impl ImagePaint {
+    pub fn new(image: Arc<RgbaImage>, transform: Affine2, clip: bool, smooth: bool) -> Self {
+        // FNV-1a
+        let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
+        for b in image
+            .width
+            .to_le_bytes()
+            .iter()
+            .chain(&image.height.to_le_bytes())
+            .chain(&image.data)
+        {
+            hash = (hash ^ u64::from(*b)).wrapping_mul(0x0100_0000_01b3);
+        }
+        ImagePaint {
+            image,
+            hash,
+            transform,
+            clip,
+            smooth,
+            opacity: 1.0,
+        }
+    }
+
+    /// Şekil koordinatlarındaki bir noktanın resimdeki yeri (piksel; kırpma ya da tekrar uygulanmış).
+    pub fn texel(&self, point: Vec2) -> Option<Vec2> {
+        let det = self.transform.matrix2.determinant();
+        if !det.is_finite() || det.abs() < 1e-12 || self.image.width == 0 || self.image.height == 0
+        {
+            return None;
+        }
+        let u = self.transform.inverse().transform_point2(point);
+        let size = Vec2::new(self.image.width as f32, self.image.height as f32);
+        Some(if self.clip {
+            u.clamp(Vec2::ZERO, size - Vec2::splat(1e-3))
+        } else {
+            u - (u / size).floor() * size
+        })
+    }
+
+    /// Bir noktadaki renk (işlemcide; testler için). Yumuşatmalıda da en yakın piksel okunur.
+    pub fn sample(&self, point: Vec2) -> Color {
+        let Some(u) = self.texel(point) else {
+            return Color::TRANSPARENT;
+        };
+        let [r, g, b, a] = self.image.pixel(u.x as u32, u.y as u32);
+        Color::from_rgba8(r, g, b, a).fade(self.opacity)
+    }
+}
+
 /// Bir şeklin içini ya da çizgisini boyayan şey.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Paint {
     Solid(Color),
     Gradient(Gradient),
+    Image(ImagePaint),
 }
 
 impl Paint {
@@ -269,6 +338,10 @@ impl Paint {
         match self {
             Paint::Solid(c) => Paint::Solid(c.fade(opacity)),
             Paint::Gradient(g) => Paint::Gradient(g.fade(opacity)),
+            Paint::Image(i) => Paint::Image(ImagePaint {
+                opacity: i.opacity * opacity,
+                ..i.clone()
+            }),
         }
     }
 
@@ -277,6 +350,7 @@ impl Paint {
         match self {
             Paint::Solid(c) => *c,
             Paint::Gradient(g) => g.sample(point),
+            Paint::Image(i) => i.sample(point),
         }
     }
 }

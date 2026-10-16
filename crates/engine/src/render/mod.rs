@@ -23,7 +23,7 @@ use crate::paint::RAMP_WIDTH;
 use crate::tessellate::{Mesh, MeshVertex};
 use crate::viewport::Viewport;
 
-use paints::{GpuPaint, PaintTable, affine_rows};
+use paints::{ATLAS_WIDTH, GpuPaint, PaintTable, affine_rows};
 
 /// Kenar yumuşatmadaki örnek sayısı.
 pub const SAMPLE_COUNT: u32 = 4;
@@ -270,6 +270,9 @@ pub struct Renderer {
     paint_capacity: usize,
     ramp_texture: wgpu::Texture,
     ramp_capacity: u32,
+    /// Resim boyalarının atlası (genişlik ATLAS_WIDTH, yükseklik `atlas_capacity`).
+    atlas_texture: wgpu::Texture,
+    atlas_capacity: u32,
     bind_group: wgpu::BindGroup,
     instance_buffer: wgpu::Buffer,
     instance_capacity: usize,
@@ -343,6 +346,16 @@ impl Renderer {
                     ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                     count: None,
                 },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 4,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture {
+                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        multisampled: false,
+                    },
+                    count: None,
+                },
             ],
         });
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -368,6 +381,8 @@ impl Renderer {
         let paint_buffer = create_paint_buffer(&device, paint_capacity);
         let ramp_capacity = 64;
         let ramp_texture = create_ramp_texture(&device, ramp_capacity);
+        let atlas_capacity = 64;
+        let atlas_texture = create_atlas_texture(&device, atlas_capacity);
         let bind_group = create_bind_group(
             &device,
             &bind_group_layout,
@@ -375,6 +390,7 @@ impl Renderer {
             &paint_buffer,
             &ramp_texture,
             &sampler,
+            &atlas_texture,
         );
         let instance_capacity = 1024;
         let instance_buffer = create_instance_buffer(&device, instance_capacity);
@@ -393,6 +409,8 @@ impl Renderer {
             paint_capacity,
             ramp_texture,
             ramp_capacity,
+            atlas_texture,
+            atlas_capacity,
             bind_group,
             instance_buffer,
             instance_capacity,
@@ -582,6 +600,37 @@ impl Renderer {
                 },
             );
         }
+        if self.paints.atlas_height() > self.atlas_capacity {
+            while self.atlas_capacity < self.paints.atlas_height() {
+                self.atlas_capacity *= 2;
+            }
+            self.atlas_texture = create_atlas_texture(&self.device, self.atlas_capacity);
+            // Yeni doku boştur: bütün resimler yeniden gönderilir
+            self.paints.atlas_sent = 0;
+            rebind = true;
+        }
+        for (x, y, w, h, data) in &self.paints.atlas[self.paints.atlas_sent..] {
+            self.queue.write_texture(
+                wgpu::TexelCopyTextureInfo {
+                    texture: &self.atlas_texture,
+                    mip_level: 0,
+                    origin: wgpu::Origin3d { x: *x, y: *y, z: 0 },
+                    aspect: wgpu::TextureAspect::All,
+                },
+                data,
+                wgpu::TexelCopyBufferLayout {
+                    offset: 0,
+                    bytes_per_row: Some(w * 4),
+                    rows_per_image: None,
+                },
+                wgpu::Extent3d {
+                    width: *w,
+                    height: *h,
+                    depth_or_array_layers: 1,
+                },
+            );
+        }
+        self.paints.atlas_sent = self.paints.atlas.len();
         if rebind {
             self.bind_group = create_bind_group(
                 &self.device,
@@ -590,6 +639,7 @@ impl Renderer {
                 &self.paint_buffer,
                 &self.ramp_texture,
                 &self.sampler,
+                &self.atlas_texture,
             );
         }
         self.paints.dirty = false;
@@ -704,7 +754,12 @@ impl Renderer {
         let view = GpuView {
             row0,
             row1,
-            ramp: [self.ramp_capacity as f32, 0.0, 0.0, 0.0],
+            ramp: [
+                self.ramp_capacity as f32,
+                ATLAS_WIDTH as f32,
+                self.atlas_capacity as f32,
+                0.0,
+            ],
         };
         self.queue
             .write_buffer(&self.view_buffer, 0, bytemuck::bytes_of(&view));
@@ -950,6 +1005,23 @@ fn create_ramp_texture(device: &wgpu::Device, rows: u32) -> wgpu::Texture {
     })
 }
 
+fn create_atlas_texture(device: &wgpu::Device, rows: u32) -> wgpu::Texture {
+    device.create_texture(&wgpu::TextureDescriptor {
+        label: Some("resim atlası"),
+        size: wgpu::Extent3d {
+            width: ATLAS_WIDTH,
+            height: rows,
+            depth_or_array_layers: 1,
+        },
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: wgpu::TextureDimension::D2,
+        format: wgpu::TextureFormat::Rgba8Unorm,
+        usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+        view_formats: &[],
+    })
+}
+
 fn create_instance_buffer(device: &wgpu::Device, capacity: usize) -> wgpu::Buffer {
     device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("örnekler"),
@@ -966,8 +1038,10 @@ fn create_bind_group(
     paints: &wgpu::Buffer,
     ramps: &wgpu::Texture,
     sampler: &wgpu::Sampler,
+    atlas: &wgpu::Texture,
 ) -> wgpu::BindGroup {
     let ramp_view = ramps.create_view(&wgpu::TextureViewDescriptor::default());
+    let atlas_view = atlas.create_view(&wgpu::TextureViewDescriptor::default());
     device.create_bind_group(&wgpu::BindGroupDescriptor {
         label: Some("vektör bağlama"),
         layout,
@@ -987,6 +1061,10 @@ fn create_bind_group(
             wgpu::BindGroupEntry {
                 binding: 3,
                 resource: wgpu::BindingResource::Sampler(sampler),
+            },
+            wgpu::BindGroupEntry {
+                binding: 4,
+                resource: wgpu::BindingResource::TextureView(&atlas_view),
             },
         ],
     })

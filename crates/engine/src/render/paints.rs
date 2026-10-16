@@ -8,11 +8,14 @@ use std::collections::HashMap;
 use bytemuck::{Pod, Zeroable};
 use glam::Affine2;
 
-use crate::paint::{Gradient, GradientMapping, Paint, RAMP_WIDTH, Spread};
+use crate::paint::{Gradient, GradientMapping, ImagePaint, Paint, RAMP_WIDTH, Spread};
 
 pub(crate) const KIND_SOLID: u32 = 0;
 pub(crate) const KIND_LINEAR: u32 = 1;
 pub(crate) const KIND_RADIAL: u32 = 2;
+pub(crate) const KIND_IMAGE: u32 = 3;
+/// Resim atlasının genişliği (piksel); yüksekliği gerektikçe büyür.
+pub(crate) const ATLAS_WIDTH: u32 = 2048;
 
 /// Gölgelendiricideki `Paint` yapısının karşılığı (80 bayt).
 #[repr(C)]
@@ -79,6 +82,18 @@ fn paint_key(paint: &Paint) -> Vec<u32> {
             }
             k
         }
+        Paint::Image(i) => {
+            let mut k = vec![
+                2,
+                i.hash as u32,
+                (i.hash >> 32) as u32,
+                u32::from(i.clip),
+                u32::from(i.smooth),
+            ];
+            k.extend(i.transform.to_cols_array().map(f32::to_bits));
+            k.push(i.opacity.to_bits());
+            k
+        }
     }
 }
 
@@ -89,6 +104,13 @@ pub(crate) struct PaintTable {
     /// Rampa dokusunun satırları, art arda.
     pub ramps: Vec<[u8; 4]>,
     pub dirty: bool,
+    /// Resim atlası: resmin özeti → yeri (x, y, genişlik, yükseklik; kenar payı hariç).
+    atlas_rects: HashMap<u64, [u32; 4]>,
+    /// Atlastaki resimler (önceden çarpılmış, 1 piksellik kenar payıyla): (x, y, genişlik, yükseklik, veri).
+    pub atlas: Vec<(u32, u32, u32, u32, Vec<u8>)>,
+    /// Grafik kartına henüz gönderilmemiş ilk atlas resmi.
+    pub atlas_sent: usize,
+    shelf: (u32, u32, u32),
 }
 
 impl PaintTable {
@@ -108,12 +130,69 @@ impl PaintTable {
                 Some(m) => self.gradient(g, &m),
                 None => solid(g.last_color().premultiplied()),
             },
+            Paint::Image(i) => self.image(i),
         };
         let index = self.records.len() as u32;
         self.records.push(record);
         self.lookup.insert(key, index);
         self.dirty = true;
         index
+    }
+
+    /// Atlasın kullanılan yüksekliği.
+    pub fn atlas_height(&self) -> u32 {
+        self.shelf.1 + self.shelf.2
+    }
+
+    /// Resmi atlasa koyar (yoksa) ve atlastaki yerini verir. Raflara soldan sağa dizilir; her resmin
+    /// çevresinde kenar piksellerinin kopyasından 1 piksellik pay vardır (yumuşatmalı okumada sınır).
+    fn place_image(&mut self, i: &ImagePaint) -> [u32; 4] {
+        if let Some(r) = self.atlas_rects.get(&i.hash) {
+            return *r;
+        }
+        let (w, h) = (i.image.width.min(ATLAS_WIDTH - 2), i.image.height);
+        let (pw, ph) = (w + 2, h + 2);
+        let (mut x, mut y, mut row) = self.shelf;
+        if x + pw > ATLAS_WIDTH {
+            y += row;
+            x = 0;
+            row = 0;
+        }
+        let mut data = Vec::with_capacity((pw * ph * 4) as usize);
+        for py in 0..ph {
+            for px in 0..pw {
+                let sx = px.saturating_sub(1).min(w.saturating_sub(1));
+                let sy = py.saturating_sub(1).min(h.saturating_sub(1));
+                let [r, g, b, a] = i.image.pixel(sx, sy);
+                let f = f32::from(a) / 255.0;
+                let pre = |c: u8| (f32::from(c) * f).round() as u8;
+                data.extend([pre(r), pre(g), pre(b), a]);
+            }
+        }
+        self.atlas.push((x, y, pw, ph, data));
+        self.shelf = (x + pw, y, row.max(ph));
+        let rect = [x + 1, y + 1, w, h];
+        self.atlas_rects.insert(i.hash, rect);
+        rect
+    }
+
+    fn image(&mut self, i: &ImagePaint) -> GpuPaint {
+        let det = i.transform.matrix2.determinant();
+        if !det.is_finite() || det.abs() < 1e-12 || i.image.width == 0 || i.image.height == 0 {
+            return solid([0.0; 4]);
+        }
+        let rect = self.place_image(i);
+        let (m0, m1) = affine_rows(i.transform.inverse());
+        GpuPaint {
+            kind: KIND_IMAGE,
+            spread: u32::from(i.clip),
+            ramp_row: u32::from(i.smooth),
+            _pad: 0,
+            color: [i.opacity, 0.0, 0.0, 0.0],
+            m0,
+            m1,
+            focal: rect.map(|v| v as f32),
+        }
     }
 
     fn gradient(&mut self, g: &Gradient, m: &GradientMapping) -> GpuPaint {

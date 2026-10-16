@@ -31,6 +31,7 @@ import xml.etree.ElementTree as ET
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ceviri  # noqa: E402
 import swf  # noqa: E402
+import swfstats  # noqa: E402
 
 ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 GAMES = {
@@ -414,6 +415,33 @@ def transform_matrix(kind, value):
     raise ValueError(f"bilinmeyen dönüşüm türü: {kind}")
 
 
+PATTERN_TAG = re.compile(r'<pattern\b[^>]*\bid="([^"]+)"[^>]*\bpatternTransform="matrix\(([^)]*)\)"[^>]*>')
+SHAPE_VERSION = {2: 1, 22: 2, 32: 3, 83: 4}
+
+
+def bitmap_fills(movie, sid):
+    """Şeklin resim dolguları (bütün stil dizilerinden): [{id, matrix, clip, smooth}]."""
+    code, body = movie.shape_bodies[sid]
+    fills = swfstats.parse_shape(body, SHAPE_VERSION[code])[2]
+    return [f for f in fills if f["type"] == "bitmap"]
+
+
+def mark_bitmap_modes(svg, fills):
+    """Resim dolgusunun türünü desenin kimliğine yazar: "-kirp" kırpılmış (resmin kenarı uzar, tekrar
+    etmez), "-yumusak" yumuşatmalı (yoksa en yakın piksel). Desen, matrisi SWF'deki dolgunun matrisiyle
+    (FFDec 4 ondalığa yuvarlar) eşlenir; eşi yoksa hata."""
+    for pid, values in PATTERN_TAG.findall(svg):
+        m = [float(v) for v in values.split(",")]
+        match = [f for f in fills if all(abs(a - b / 20) < 1e-3 for a, b in zip(m[:4], f["matrix"][:4]))
+                 and all(abs(a - b / 20) < 0.01 for a, b in zip(m[4:], f["matrix"][4:]))]
+        if not match or any((f["clip"], f["smooth"]) != (match[0]["clip"], match[0]["smooth"]) for f in match):
+            raise ValueError(f"desen {pid}: SWF'deki resim dolgusuyla eşlenemedi")
+        suffix = ("-kirp" if match[0]["clip"] else "") + ("-yumusak" if match[0]["smooth"] else "")
+        if suffix:
+            svg = svg.replace(f'id="{pid}"', f'id="{pid}{suffix}"').replace(f"url(#{pid})", f"url(#{pid}{suffix})")
+    return svg
+
+
 def clean_svg(svg):
     out = FFDEC_ATTR.sub("", keep_stroke_hints(svg))
     out = re.sub(r"<\?xml[^>]*\?>\s*", "", out)
@@ -601,7 +629,7 @@ def build(game, swf_path, archive, out_dir, code_dir, swf_root=None, tr_archive=
             raw = f.read()
         converted = convert_shape(raw)
         if converted is None:
-            text, origin, sub = clean_svg(raw), svg_origin(raw), "shapes-bitmap"
+            text, origin, sub = mark_bitmap_modes(clean_svg(raw), bitmap_fills(movie, sid)), svg_origin(raw), "shapes-bitmap"
             bitmap_shapes[str(sid)] = round_list(origin, 3)
         else:
             (text, origin), sub = converted, "shapes"

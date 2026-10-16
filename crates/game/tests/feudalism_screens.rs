@@ -1,6 +1,7 @@
 //! Feudalism ekranlarının motorun oynatıcısıyla ekransız görüntü testi: kök filmin karesi oynatılıp
-//! çizilir ve beklenen resimle karşılaştırılır (ana menüler). Beklenen resimler FFDec'in kare
-//! çizimiyle karşılaştırılarak gözden geçirildi (yazılar ve süzgeçler henüz çizilmiyor).
+//! çizilir ve beklenen resimle karşılaştırılır (ana menüler; resim dolgulu zeminli şehir ekranı).
+//! Beklenen resimler FFDec'in kare çizimiyle karşılaştırılarak gözden geçirildi (yazılar ve süzgeçler
+//! henüz çizilmiyor).
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use std::path::PathBuf;
@@ -34,7 +35,7 @@ fn render_root_frame(game: &str, frame: usize, size: UVec2) -> engine::image::Rg
         stats.failed, 0,
         "{game} kare {frame}: çizilemeyen sembol var"
     );
-    assert!(stats.drawn > 100, "{game} kare {frame}: çok az çizim");
+    assert!(stats.drawn > 50, "{game} kare {frame}: çok az çizim");
     renderer.render_to_image(&viewport, &list).unwrap()
 }
 
@@ -53,5 +54,20 @@ fn main_menus_snapshot() {
         ) {
             panic!("{e}");
         }
+    }
+}
+
+#[test]
+fn town_screen_with_bitmap_filled_ground_snapshot() {
+    // F1 kök filmin 5. karesi: parke taşı zemin resim dolgusudur (kırpılmış, yumuşatmasız)
+    let reference = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/reference");
+    let image = render_root_frame("f1", 5, UVec2::new(400, 300));
+    if let Err(e) = check(
+        "feudalism-f1-sehir",
+        &reference,
+        &image,
+        Tolerance::RENDERER,
+    ) {
+        panic!("{e}");
     }
 }

@@ -633,6 +633,29 @@ class FilterRecords(unittest.TestCase):
             t.add_tag(43, b"walk\0")
 
 
+class BitmapFillModes(unittest.TestCase):
+    """Resim dolgusunun türü (tekrarlı/kırpılmış, yumuşatmalı/yumuşatmasız) okunur ve desene yazılır;
+    FFDec'in SVG'si bu ayrımı yazmaz (her deseni tekrarlar)."""
+
+    def fill(self, kind):
+        from swfstats import fillstyle
+        return fillstyle(Bits(bytes([kind]) + struct.pack("<H", 7) + matrix_bytes(scale=(20, 20), tx=3, ty=4)), 3)
+
+    def test_fill_style_keeps_clip_and_smoothing(self):
+        self.assertEqual({k: self.fill(0x43)[k] for k in ("id", "clip", "smooth")}, {"id": 7, "clip": True, "smooth": False})
+        self.assertEqual({k: self.fill(0x40)[k] for k in ("clip", "smooth")}, {"clip": False, "smooth": True})
+        self.assertEqual({k: self.fill(0x42)[k] for k in ("clip", "smooth")}, {"clip": False, "smooth": False})
+
+    def test_pattern_ids_carry_the_mode(self):
+        svg = ('<svg><pattern id="PatternID_5_1" patternTransform="matrix(1.0, 0.0, 0.0, 1.0, 3.0, 4.0)"></pattern>'
+               '<path style="fill:url(#PatternID_5_1)"/></svg>')
+        fills = [{"type": "bitmap", "id": 7, "matrix": (20.0, 0.0, 0.0, 20.0, 60, 80), "clip": True, "smooth": False}]
+        out = aktar.mark_bitmap_modes(svg, fills)
+        self.assertIn('id="PatternID_5_1-kirp"', out)
+        self.assertIn("url(#PatternID_5_1-kirp)", out)
+        with self.assertRaises(ValueError):
+            aktar.mark_bitmap_modes(svg.replace("3.0, 4.0", "9.0, 4.0"), fills)
+
 class ActionStrings(unittest.TestCase):
     """AVM1 bayt kodundaki dizeler (kod çevirisinin Türkçe SWF'yle karşılaştırılması için)."""
 

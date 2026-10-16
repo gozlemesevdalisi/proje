@@ -9,7 +9,7 @@ use glam::{Affine2, Mat2, Vec2};
 use lyon_tessellation::math::point;
 use lyon_tessellation::path::{Event, Path};
 
-use crate::paint::{Gradient, GradientKind, GradientStop, Paint};
+use crate::paint::{Gradient, GradientKind, GradientStop, ImagePaint, Paint};
 use crate::shape::{Fill, Shape, Stroke, VectorImage};
 
 /// İki uç aynı yapıda değil (şekil, yol parçası, boya türü ya da durak sayısı farklı).
@@ -192,7 +192,18 @@ fn lerp_paint(a: &Paint, b: &Paint, t: f32) -> Result<Paint, MorphError> {
                 transform: lerp_affine(x.transform, y.transform, t),
             }))
         }
-        _ => Err(MorphError("boya türü farklı (düz renk / degrade)".into())),
+        (Paint::Image(x), Paint::Image(y))
+            if x.hash == y.hash && x.clip == y.clip && x.smooth == y.smooth =>
+        {
+            Ok(Paint::Image(ImagePaint {
+                transform: lerp_affine(x.transform, y.transform, t),
+                opacity: mix(x.opacity, y.opacity, t),
+                ..x.clone()
+            }))
+        }
+        _ => Err(MorphError(
+            "boya türü farklı (düz renk / degrade / resim)".into(),
+        )),
     }
 }
 

@@ -419,3 +419,59 @@ fn masks_clip_drawings_and_nest() {
     // Maske şekilleri (yeşil, mavi) hiç görünmez; maskeler kapandıktan sonraki çizim her yerde görünür
     assert_eq!(img.pixel(90, 90), [0x20, 0x40, 0xA0, 255]);
 }
+
+#[test]
+fn image_paint_repeats_or_clamps_with_nearest_pixels() {
+    // Flash'ın yumuşatmasız resim dolgusu: 2×2'lik resim 10 kat büyütülür. Tekrarlı dolguda resim
+    // tekrar eder; kırpılmış dolguda resmin dışında kenar pikseli uzar.
+    use engine::image::RgbaImage;
+    use engine::paint::ImagePaint;
+    use std::sync::Arc;
+    let mut img = RgbaImage::new(2, 2);
+    img.set_pixel(0, 0, [255, 0, 0, 255]);
+    img.set_pixel(1, 0, [0, 255, 0, 255]);
+    img.set_pixel(0, 1, [0, 0, 255, 255]);
+    img.set_pixel(1, 1, [255, 255, 255, 255]);
+    let img = Arc::new(img);
+    let mut r = renderer();
+    let paint = |clip| {
+        Paint::Image(ImagePaint::new(
+            img.clone(),
+            Affine2::from_scale(Vec2::splat(10.0)),
+            clip,
+            false,
+        ))
+    };
+    let repeat = r.upload(
+        &tessellate(
+            &image(vec![Shape::filled(
+                rect_path(Vec2::ZERO, Vec2::new(50.0, 40.0)),
+                paint(false),
+            )]),
+            0.05,
+        )
+        .unwrap(),
+    );
+    let clip = r.upload(
+        &tessellate(
+            &image(vec![Shape::filled(
+                rect_path(Vec2::ZERO, Vec2::new(50.0, 40.0)),
+                paint(true),
+            )]),
+            0.05,
+        )
+        .unwrap(),
+    );
+    let mut list = DrawList::new(hex("#000000"));
+    list.draw(&repeat, Affine2::IDENTITY);
+    list.draw(&clip, Affine2::from_translation(Vec2::new(50.0, 50.0)));
+    let img = r.render_to_image(&small_viewport(), &list).unwrap();
+    assert_eq!(img.pixel(5, 5), [255, 0, 0, 255]);
+    assert_eq!(img.pixel(15, 5), [0, 255, 0, 255]);
+    assert_eq!(img.pixel(25, 5), [255, 0, 0, 255], "tekrar");
+    assert_eq!(img.pixel(35, 15), [255, 255, 255, 255], "tekrar");
+    assert_eq!(img.pixel(55, 55), [255, 0, 0, 255]);
+    assert_eq!(img.pixel(95, 55), [0, 255, 0, 255], "kenar uzar");
+    assert_eq!(img.pixel(95, 85), [255, 255, 255, 255], "kenar uzar");
+    assert_eq!(img.pixel(55, 85), [0, 0, 255, 255], "kenar uzar");
+}

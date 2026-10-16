@@ -176,6 +176,11 @@ fn transform_paint(paint: &Paint, t: Affine2) -> Paint {
             g.transform = t * g.transform;
             Paint::Gradient(g)
         }
+        Paint::Image(i) => {
+            let mut i = i.clone();
+            i.transform = t * i.transform;
+            Paint::Image(i)
+        }
     }
 }
 

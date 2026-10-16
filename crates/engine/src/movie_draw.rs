@@ -4,7 +4,7 @@
 //! önbellekte tutulur. Morph'ların ara hâlleri orana göre kurulur (oran başına bir kez). Flash'ın ince
 //! çizgi kuralı uygulanır: 1 pikselden ince çizgi ekranda 1 piksel çizilir (ölçeğe göre ayrı ağ).
 //!
-//! Henüz çizilmeyenler sayılır ([`DrawStats`]): resim dolgulu şekiller ve yazılar.
+//! Resim dolgulu şekiller resim boyasıyla çizilir. Henüz çizilmeyenler sayılır ([`DrawStats`]): yazılar.
 
 use std::collections::HashMap;
 
@@ -29,7 +29,7 @@ const SCALE_STEPS: f32 = 4.0;
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct DrawStats {
     pub drawn: usize,
-    /// Resim dolgulu şekiller (henüz çizilmiyor).
+    /// Çizilen resim dolgulu şekiller.
     pub bitmap_shapes: usize,
     /// Sabit yazılar ve yazı alanları (henüz çizilmiyor).
     pub texts: usize,
@@ -110,6 +110,17 @@ impl MovieMeshes {
         mesh
     }
 
+    fn bitmap_shape(&mut self, renderer: &mut Renderer, id: CharId) -> Option<GpuMesh> {
+        if let Some(m) = self.meshes.get(&(id, i32::MAX)) {
+            return m.clone();
+        }
+        let mesh = self
+            .image(format!("{}shapes-bitmap/{id}.svg", self.prefix))
+            .and_then(|image| upload(renderer, &image, id));
+        self.meshes.insert((id, i32::MAX), mesh.clone());
+        mesh
+    }
+
     fn morph(&mut self, renderer: &mut Renderer, id: CharId, ratio: f32) -> Option<GpuMesh> {
         let step = (ratio.clamp(0.0, 1.0) * RATIO_STEPS).round() as u32;
         if let Some(m) = self.morphs.get(&(id, step)) {
@@ -145,9 +156,9 @@ impl MovieMeshes {
                 self.shape(renderer, lib, id, transform_scale(transform) * pixel_scale)
             }
             DrawKind::Morph { id, ratio } => self.morph(renderer, id, ratio),
-            DrawKind::BitmapShape(_) => {
+            DrawKind::BitmapShape(id) => {
                 stats.bitmap_shapes += 1;
-                return None;
+                self.bitmap_shape(renderer, id)
             }
             DrawKind::Text(_) | DrawKind::EditText(_) => {
                 stats.texts += 1;

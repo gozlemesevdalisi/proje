@@ -111,8 +111,12 @@ Feudalism'in görselleri SWF'deki yapılarıyla aktarılır (`content/feudalism/
   kuralı: 1 pikselden ince çizgi ekranda 1 piksel çizilir (ölçeğe göre ayrı ağ).
 - Maskeler kalıp (stencil) arabelleğiyle çizilir: `DrawList::push_mask` / `pop_mask`. Maske şekli
   görünmez, maske açıkken çizilenler yalnız onun içinde görünür; maskeler iç içe olabilir.
-- Henüz çizilmeyenler: resim dolgulu şekiller (zemin dokuları), yazılar (Türkçe metinler açık lisanslı
-  yazı tipleriyle dizilecek), süzgeçler (parlama, bulanıklık), karışım kipleri.
+- Resim dolguları (zemin dokuları) resim boyasıyla çizilir (`engine::paint::ImagePaint`): resimler
+  grafik kartında tek bir atlas dokusundadır; gölgelendirici şekil koordinatından resim pikselini bulur.
+  Flash'taki dört tür: tekrarlı ya da kırpılmış (resmin dışında kenar pikseli uzar), yumuşatmalı ya da
+  en yakın piksel. Tür, aktarım aracının desen kimliğine yazdığı ekten okunur (`-kirp`, `-yumusak`).
+- Henüz çizilmeyenler: yazılar (Türkçe metinler açık lisanslı yazı tipleriyle dizilecek), süzgeçler
+  (parlama, bulanıklık), karışım kipleri.
 - Deneme aracı: `cargo run --release -p engine --example movie-png -- content feudalism/f1 4 menu.png`
   kök filmin bir karesini resme çizer.
 

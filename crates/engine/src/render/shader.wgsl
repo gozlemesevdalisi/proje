@@ -7,7 +7,7 @@ struct View {
     // Mantıksal koordinatlardan kırpma uzayına dönüşümün iki satırı.
     row0: vec4<f32>,
     row1: vec4<f32>,
-    // x: rampa dokusunun satır sayısı.
+    // x: rampa dokusunun satır sayısı; y, z: resim atlasının genişliği ve yüksekliği.
     ramp: vec4<f32>,
 };
 
@@ -26,6 +26,7 @@ struct Paint {
 @group(0) @binding(1) var<storage, read> paints: array<Paint>;
 @group(0) @binding(2) var ramp_texture: texture_2d<f32>;
 @group(0) @binding(3) var ramp_sampler: sampler;
+@group(0) @binding(4) var atlas: texture_2d<f32>;
 
 struct VertexIn {
     @location(0) position: vec2<f32>,
@@ -103,6 +104,24 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
     var c: vec4<f32>;
     if paint.kind == 0u {
         c = paint.color;
+    } else if paint.kind == 3u {
+        // Resim: m0/m1 şekil koordinatlarından resim pikseline; focal atlastaki yer (x, y, en, boy);
+        // spread 1 kırpılmış (kenar uzar), 0 tekrarlı; ramp_row 1 yumuşatmalı; color.x saydamlık.
+        let p = vec3<f32>(in.local, 1.0);
+        var u = vec2<f32>(dot(paint.m0.xyz, p), dot(paint.m1.xyz, p));
+        let size = paint.focal.zw;
+        if paint.spread == 1u {
+            u = clamp(u, vec2<f32>(0.0), size - vec2<f32>(0.001));
+        } else {
+            u = u - floor(u / size) * size;
+        }
+        if paint.ramp_row == 1u {
+            let q = clamp(u, vec2<f32>(0.5), size - vec2<f32>(0.5));
+            c = textureSampleLevel(atlas, ramp_sampler, (paint.focal.xy + q) / view.ramp.yz, 0.0);
+        } else {
+            c = textureLoad(atlas, vec2<i32>(paint.focal.xy + floor(u)), 0);
+        }
+        c = c * paint.color.x;
     } else {
         let t = apply_spread(gradient_t(paint, in.local), paint.spread);
         let uv = vec2<f32>((t * 255.0 + 0.5) / 256.0, (f32(paint.ramp_row) + 0.5) / view.ramp.x);

@@ -86,6 +86,8 @@ fn paint_colors(paint: &Paint) -> Vec<Color> {
     match paint {
         Paint::Solid(c) => vec![*c],
         Paint::Gradient(g) => g.stops.iter().map(|s| s.color).collect(),
+        // Eski örnek çizimlerde resim boyası yok; renk kuralları yalnız vektör boyalara bakar
+        Paint::Image(_) => Vec::new(),
     }
 }
 
