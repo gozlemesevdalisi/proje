@@ -28,6 +28,7 @@ import sys
 import xml.etree.ElementTree as ET
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import ceviri  # noqa: E402
 import swf  # noqa: E402
 
 ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
@@ -346,9 +347,17 @@ def find_file(folder, cid, exts):
     return None
 
 
-def build(game, swf_path, archive, out_dir, code_dir):
-    """Bir oyunu aktarır. `archive`: FFDec'in tam dökümü (referans/<oyun>/tam). Dönen: manifest."""
+def build(game, swf_path, archive, out_dir, code_dir, swf_root=None, tr_archive=None):
+    """Bir oyunu aktarır. `archive`: FFDec'in tam dökümü (referans/<oyun>/tam). `swf_root` verilirse Türkçe
+    çeviri de aktarılır (bkz. ceviri.py); `tr_archive`: Türkçe SWF'nin dökümü (referans/<oyun>/tr).
+    Dönen: (library, manifest, gereken yazı tipi dosyaları)."""
     movie = swf.Movie(swf_path)
+    font_table = {}
+    if swf_root:
+        with open(os.path.join(swf_root, ceviri.TRANSLATIONS[game], "ceviri", "yazitipleri.json"),
+                  encoding="utf-8") as f:
+            font_table = json.load(f)
+    font_files = []
     tp = third_party(game, movie)
     exports = {n: c for n, c in movie.exports.items() if not is_component_export(n) and c not in tp}
 
@@ -406,16 +415,34 @@ def build(game, swf_path, archive, out_dir, code_dir):
         if src is None:
             raise FileNotFoundError(f"{game}: ses {sid} FFDec dökümünde yok")
         name = f"{sid}{os.path.splitext(src)[1].lower()}"
-        shutil.copyfile(src, os.path.join(out_dir, "sounds", name))
+        body = sound_body(movie, sid)
+        if swf.read_sound(body)["format"] == "MP3":
+            # MP3 doğrudan SWF'den yazılır; FFDec'in dökümüyle bayt bayt aynı olmalı (iki bağımsız okuma)
+            data = swf.sound_file_data(body)
+            with open(src, "rb") as f:
+                if f.read() != data:
+                    raise ValueError(f"{game}: ses {sid} SWF'deki veriyle FFDec'in dökümü farklı")
+            with open(os.path.join(out_dir, "sounds", name), "wb") as f:
+                f.write(data)
+        else:
+            # Sıkıştırılmamış ya da ADPCM ses: FFDec'in çözdüğü WAV
+            shutil.copyfile(src, os.path.join(out_dir, "sounds", name))
         export = next((n for n, c in movie.exports.items() if c == sid), None)
         sounds[str(sid)] = {"file": f"sounds/{name}", **({"export": export} if export else {}),
-                            **{k: v for k, v in swf.read_sound(sound_body(movie, sid)).items() if k != "id"}}
+                            **{k: v for k, v in swf.read_sound(body).items() if k != "id"}}
         where[sid] = sounds[str(sid)]["file"]
     # Yazılar ve yazı alanları
     fonts = {}
     for fid, (code, body) in sorted(movie.font_bodies.items()):
         _, name, bold, italic, codes = swf.read_font(body)
         fonts[str(fid)] = {"name": name, "bold": bold, "italic": italic, "codes": codes}
+        if swf_root:
+            # Gömülü yazı tipi aktarılmaz; yerine açık lisanslı karşılığı (content/ köküne göre yol)
+            rel = ceviri.font_file(fid, fonts[str(fid)], font_table)
+            if rel is None:
+                raise ValueError(f"{game}: yazı tipi {fid} ({name}) için karşılık yok")
+            fonts[str(fid)]["file"] = f"fonts/{os.path.basename(rel)}"
+            font_files.append(rel)
         where[fid] = "yalnız yerel arşiv (yazı tipi lisansı); kodlar texts.json"
     font_codes = {int(k): v["codes"] for k, v in fonts.items()}
     texts = {}
@@ -450,6 +477,9 @@ def build(game, swf_path, archive, out_dir, code_dir):
             recs.append(rec)
         buttons[str(bid)] = recs
         where[bid] = "library.json"
+    # Oyunun kodu (görsel değil; oyunun kurallarını yazarken başvuru)
+    reset_dir(code_dir)
+    shutil.copytree(os.path.join(archive, "scripts"), os.path.join(code_dir, "kod"))
     library = {
         "description": "Feudalism görselleri; araclar/aktar/aktar.py üretir, elle değiştirmeyin.",
         "source": {"file": os.path.basename(swf_path), "sha256": swf.sha256(swf_path)},
@@ -467,12 +497,14 @@ def build(game, swf_path, archive, out_dir, code_dir):
         "root": timeline_json(movie.root, root_actions),
         "excluded": {str(k): v for k, v in sorted(tp.items())},
     }
+    if swf_root:
+        with open(os.path.join(out_dir, "texts.json"), encoding="utf-8") as f:
+            text_data = json.load(f)
+        library["translation"] = ceviri.import_translation(game, swf_root, archive, tr_archive, out_dir, code_dir,
+                                                           library, text_data, convert_shape)
     with open(os.path.join(out_dir, "library.json"), "w", encoding="utf-8") as f:
         json.dump(library, f, ensure_ascii=False, separators=(",", ":"))
         f.write("\n")
-    # Oyunun kodu (görsel değil; oyunun kurallarını yazarken başvuru)
-    reset_dir(code_dir)
-    shutil.copytree(os.path.join(archive, "scripts"), os.path.join(code_dir, "kod"))
     # Manifest: her karakterin ve her etiket türünün nereye gittiği
     for cid, reason in tp.items():
         where[cid] = "yalnız yerel arşiv: " + reason
@@ -493,7 +525,7 @@ def build(game, swf_path, archive, out_dir, code_dir):
     with open(os.path.join(code_dir, "manifest.json"), "w", encoding="utf-8") as f:
         json.dump(manifest, f, ensure_ascii=False, indent=1)
         f.write("\n")
-    return library, manifest
+    return library, manifest, font_files
 
 
 def sound_body(movie, sid):
@@ -537,17 +569,24 @@ def file_info(movie):
 
 def main(argv):
     swf_root = argv[0] if argv else os.environ.get("SWF_KOK", os.path.join(ROOT, "..", "swf-oyunlar"))
+    fonts = []
     for game, rel in GAMES.items():
         out_dir = os.path.join(ROOT, "content", "feudalism", game)
         code_dir = os.path.join(ROOT, "kaynak", "feudalism", game)
         os.makedirs(out_dir, exist_ok=True)
-        lib, man = build(game, os.path.join(swf_root, rel), os.path.join(ROOT, "referans", game, "tam"), out_dir,
-                         code_dir)
+        lib, man, font_files = build(game, os.path.join(swf_root, rel), os.path.join(ROOT, "referans", game, "tam"),
+                                     out_dir, code_dir, swf_root, os.path.join(ROOT, "referans", game, "tr"))
+        fonts += font_files
+        tr = lib["translation"]["counts"]
         print(f"{game}: şekil {len(lib['shapes'])} + resim dolgulu {len(lib['bitmap_shapes'])}, morph {len(lib['morphs'])}, "
               f"resim {len(lib['images'])}, ses {len(lib['sounds'])}, sprite {len(lib['sprites'])}, "
               f"düğme {len(lib['buttons'])}, kök kare {len(lib['root']['frames'])}; yerel arşivde kalan "
               f"{len(lib['excluded'])}; eksik {len(man['missing'])}; tanınmayan etiket "
-              f"{sum(1 for v in man['dispositions'].values() if v == 'TANINMAYAN ETİKET')}")
+              f"{sum(1 for v in man['dispositions'].values() if v == 'TANINMAYAN ETİKET')}; çeviri: sabit yazı "
+              f"{tr['texts']}, ekran kutusu {tr['edit_texts']}, kod dosyası {tr['code_files']}, ad {tr['names']}, "
+              f"çizilmiş yazı {tr['drawn_texts']}")
+    copied = ceviri.copy_fonts(swf_root, fonts, os.path.join(ROOT, "content", "fonts"))
+    print(f"yazı tipleri (content/fonts): {', '.join(copied)}")
 
 
 if __name__ == "__main__":

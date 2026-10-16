@@ -6,7 +6,9 @@
 yerel arşivi gerektirir; onları denetimin kendisi çalıştırır (`denetim.py --gorsel`).
 """
 import base64
+import hashlib
 import io
+import json
 import os
 import sys
 import tempfile
@@ -31,6 +33,18 @@ def png_bytes(im):
 
 
 class XmlReadingTest(unittest.TestCase):
+    def test_sound_info_keeps_only_flagged_fields_like_the_importer(self):
+        self.assertEqual(denetim.xml_sound_info(None), {})
+        plain = el('<soundInfo syncStop="false" syncNoMultiple="false" hasInPoint="false" hasOutPoint="false" '
+                   'hasLoops="false" hasEnvelope="false" inPoint="0" outPoint="0" loopCount="0"/>')
+        self.assertEqual(denetim.xml_sound_info(plain), {})
+        full = el('<soundInfo syncStop="true" syncNoMultiple="true" hasInPoint="true" inPoint="441" '
+                  'hasOutPoint="true" outPoint="8820" hasLoops="true" loopCount="3" hasEnvelope="true">'
+                  '<envelopeRecords><item pos44="0" leftLevel="0" rightLevel="32768"/>'
+                  '<item pos44="4410" leftLevel="32768" rightLevel="0"/></envelopeRecords></soundInfo>')
+        self.assertEqual(denetim.xml_sound_info(full), {"stop": True, "no_multiple": True, "in": 441, "out": 8820,
+                                                        "loops": 3, "envelope": [[0, 0, 32768], [4410, 32768, 0]]})
+
     def test_matrix_defaults_to_identity_and_divides_translation_by_twenty(self):
         self.assertEqual(denetim.xml_matrix(None), [1.0, 0.0, 0.0, 1.0, 0.0, 0.0])
         m = el('<matrix hasScale="true" scaleX="2.0" scaleY="0.5" hasRotate="true" rotateSkew0="0.25" '
@@ -70,7 +84,7 @@ class XmlReadingTest(unittest.TestCase):
         t.finish()
         self.assertEqual(t.frames, [[{"depth": 1, "char": 5}], [{"remove": 1}]])
         self.assertEqual(t.labels, {"giris": 0})
-        self.assertEqual(t.sounds, {1: [9]})
+        self.assertEqual(t.sounds, {1: [{"id": 9}]})
         self.assertEqual(t.counts["ShowFrame"], 2)
 
     def test_dump_reads_characters_bounds_sounds_exports_and_root(self):
@@ -79,7 +93,7 @@ class XmlReadingTest(unittest.TestCase):
                '<item type="DefineMorphShapeTag" characterId="6">'
                '<startBounds Xmin="-20" Ymin="-40" Xmax="20" Ymax="0"/>'
                '<endBounds Xmin="0" Ymin="0" Xmax="40" Ymax="60"/></item>'
-               '<item type="DefineSoundTag" soundId="9" soundData="0001fffb"/>'
+               '<item type="DefineSoundTag" soundId="9" soundSampleCount="15763" soundData="0001fffb"/>'
                '<item type="DoActionTag"/>'
                '<item type="PlaceObject2Tag" depth="1" placeFlagHasCharacter="true" characterId="5"/>'
                '<item type="FrameLabelTag" name="giris"/>'
@@ -94,6 +108,7 @@ class XmlReadingTest(unittest.TestCase):
         self.assertEqual(dump.chars, {5: "shape", 6: "morph", 9: "sound"})
         self.assertEqual(dump.morph_bounds[6], {"start": [-1.0, -2.0, 1.0, 0.0], "end": [0.0, 0.0, 2.0, 3.0]})
         self.assertEqual(dump.sounds[9], b"\x00\x01\xff\xfb")
+        self.assertEqual(dump.sound_samples[9], 15763)
         self.assertEqual(dump.exports, {"Kale": 5})
         self.assertEqual(dump.root.frames, [[{"depth": 1, "char": 5}]])
         self.assertEqual(dump.root.labels, {"giris": 0})
@@ -234,8 +249,9 @@ class ComparisonTest(unittest.TestCase):
         theirs = denetim.XmlTimeline()
         theirs.frames = [[{"depth": 1, "char": 5}], [{"remove": 1}]]
         theirs.labels = {"giris": 0}
-        theirs.sounds = {1: [9]}
-        ours = {"frames": [[{"depth": 1, "char": 5}], [{"remove": 1}]], "labels": {"giris": 0}, "sounds": {"1": [9]}}
+        theirs.sounds = {1: [{"id": 9}]}
+        ours = {"frames": [[{"depth": 1, "char": 5}], [{"remove": 1}]], "labels": {"giris": 0},
+                "sounds": {"1": [{"id": 9}]}}
         problems = []
         self.assertEqual(denetim.compare_timeline("s", ours, theirs, problems), 2)
         self.assertEqual(problems, [])
@@ -243,6 +259,13 @@ class ComparisonTest(unittest.TestCase):
         ours["frames"][0][0]["char"] = 6
         denetim.compare_timeline("s", ours, theirs, problems)
         self.assertEqual(len(problems), 2, problems)
+        # Sesi durduran kayıt başlatan kayıtla aynı sayılmaz
+        problems = []
+        ours = {"frames": [[{"depth": 1, "char": 5}], [{"remove": 1}]], "labels": {"giris": 0},
+                "sounds": {"1": [{"id": 9}]}}
+        theirs.sounds = {1: [{"id": 9, "stop": True}]}
+        denetim.compare_timeline("s", ours, theirs, problems)
+        self.assertEqual(problems, ["s: ses başlatmaları farklı"])
         problems = []
         self.assertEqual(denetim.compare_timeline("s", {"frames": [[]]}, theirs, problems), 0)
         self.assertIn("kare sayısı", problems[0])
@@ -326,6 +349,68 @@ class PixelTest(unittest.TestCase):
                 denetim.ROOT = old_root
         self.assertEqual(probs, ["t şekil 2: ince çizgi bizim 0 / listede 0 / FFDec 1"])
         self.assertEqual(len(more), 2)
+
+    def test_file_hash_and_tree_files_read_bytes(self):
+        with tempfile.TemporaryDirectory() as td:
+            os.makedirs(os.path.join(td, "a"))
+            with open(os.path.join(td, "a", "b.as"), "wb") as f:
+                f.write(b"stop();")
+            self.assertEqual(denetim.tree_files(td), {"a/b.as": b"stop();"})
+            self.assertEqual(denetim.file_hash(os.path.join(td, "a", "b.as")), hashlib.sha256(b"stop();").hexdigest())
+
+    def test_translation_problems_compare_with_source_dump_and_tool(self):
+        old_root = denetim.ROOT
+        with tempfile.TemporaryDirectory() as td:
+            denetim.ROOT = os.path.join(td, "proje")
+            try:
+                root = os.path.join(td, "swf-oyunlar")
+                src = os.path.join(root, "oyunlar", "feudalism", "ceviri")
+                os.makedirs(src)
+                data = {"adlar": {"silahlar": {}, "zirhlar": {}, "birlikler": {}}, "kod": {},
+                        "sabit": {"160": {"parcalar": ["Yerini Koru", "ikinci"]}}, "kutular": {"46": "ıska"},
+                        "yazitipleri": {"45": {"kaynak": "yazitipleri/LiberationSans-Bold.ttf"}},
+                        "sekiller": {"2019": {"metin": "Öldün..."}}}
+                content = os.path.join(denetim.ROOT, "content")
+                os.makedirs(os.path.join(content, "feudalism", "f1", "ceviri"))
+                os.makedirs(os.path.join(content, "fonts"))
+                for name, value in data.items():
+                    for folder in (src, os.path.join(content, "feudalism", "f1", "ceviri")):
+                        with open(os.path.join(folder, f"{name}.json"), "w", encoding="utf-8") as f:
+                            json.dump(value, f, ensure_ascii=False)
+                os.makedirs(os.path.join(root, "yazitipleri"))
+                for folder in (os.path.join(root, "yazitipleri"), os.path.join(content, "fonts")):
+                    with open(os.path.join(folder, "LiberationSans-Bold.ttf"), "wb") as f:
+                        f.write(b"ttf")
+                with open(os.path.join(content, "fonts", "OFL-Liberation.txt"), "w") as f:
+                    f.write("OFL")
+                # Kod aracı: hiçbir dosyayı çevirmez
+                os.makedirs(os.path.join(root, "araclar"))
+                with open(os.path.join(root, "araclar", "kod_cevir.py"), "w") as f:
+                    f.write("import os, sys\nos.makedirs(sys.argv[3])\n")
+                archive = os.path.join(td, "tam")
+                os.makedirs(os.path.join(archive, "scripts"))
+                os.makedirs(os.path.join(denetim.ROOT, "kaynak", "feudalism", "f1", "kod-tr"))
+                dump = types.SimpleNamespace(texts={160: [{}, {}]}, edit_texts={46: {}}, chars={45: "font", 2019: "shape"})
+                lib = {"translation": {"drawn_texts": {"2019": {"file": "ceviri/sekiller/2019.svg"}}}}
+                texts = {"fonts": {"45": {"name": "Arial", "bold": True, "file": "fonts/LiberationSans-Bold.ttf"}}}
+                clean = denetim.translation_problems("f1", lib, texts, dump, root, archive)
+                # Bozulmuş durum: tablo değişmiş, kayıt sayısı tutmuyor, yazı tipi farklı, fazladan çevrilmiş kod
+                with open(os.path.join(content, "feudalism", "f1", "ceviri", "kutular.json"), "w") as f:
+                    f.write("{}")
+                dump.texts[160] = [{}]
+                with open(os.path.join(content, "fonts", "LiberationSans-Bold.ttf"), "wb") as f:
+                    f.write(b"baska")
+                with open(os.path.join(denetim.ROOT, "kaynak", "feudalism", "f1", "kod-tr", "x.as"), "w") as f:
+                    f.write("x")
+                broken = denetim.translation_problems("f1", lib, texts, dump, root, archive)
+            finally:
+                denetim.ROOT = old_root
+        self.assertEqual(clean, ([], [], [], []))
+        self.assertEqual([len(p) for p in broken], [1, 1, 1, 1], broken)
+        self.assertIn("kutular.json", broken[0][0])
+        self.assertIn("sabit yazı 160", broken[1][0])
+        self.assertIn("x.as", broken[2][0])
+        self.assertIn("kaynağıyla aynı değil", broken[3][0])
 
     def test_morph_bounds_problems_compare_canvas_with_union_of_both_ends(self):
         dump = types.SimpleNamespace(morph_bounds={6: {"start": [-1.0, -2.0, 1.0, 0.0], "end": [0.0, 0.0, 2.0, 3.0]}})

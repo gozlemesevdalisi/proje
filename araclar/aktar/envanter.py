@@ -13,6 +13,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import aktar  # noqa: E402
+import ceviri  # noqa: E402
 import swf  # noqa: E402
 from swfstats import tags  # noqa: E402
 
@@ -67,14 +68,16 @@ def sprite_names(movie):
 
 
 def sound_uses(movie, names):
-    """Ses kimliği → [kullanıldığı yer (sprite, kare etiketi)]."""
+    """Ses kimliği → [kullanıldığı yer (kök film ya da sprite, kare etiketi, kare; sesi durduruyorsa
+    "durdurur")]."""
     out = {}
-    for sid, t in sorted(movie.sprites.items()):
-        for frame, ids in t.sounds.items():
+    timelines = [("kök film", movie.root)] + [(names.get(sid, f"#{sid}"), t) for sid, t in sorted(movie.sprites.items())]
+    for name, t in timelines:
+        for frame, sounds in sorted(t.sounds.items()):
             label = max(((lb, f) for lb, f in t.labels.items() if f <= frame), key=lambda x: x[1], default=(None, 0))[0]
-            where = names.get(sid, f"#{sid}") + (f" / {label}" if label else "") + f" / kare {frame + 1}"
-            for s in ids:
-                out.setdefault(s, []).append(where)
+            where = name + (f" / {label}" if label else "") + f" / kare {frame + 1}"
+            for s in sounds:
+                out.setdefault(s["id"], []).append(where + (" (durdurur)" if s.get("stop") else ""))
     return out
 
 
@@ -87,6 +90,91 @@ def strip_html(text):
     text = re.sub(r"<sbr\s*/?>|</p>", "\n", text)
     text = re.sub(r"<[^>]+>", "", text)
     return text.replace("&apos;", "'").replace("&quot;", '"').replace("&lt;", "<").replace("&gt;", ">").replace("&amp;", "&")
+
+
+SPONSOR_TEXT = re.compile(r"arcadetown|armorgames|newgrounds|https?://|this version|other site|contact dev", re.I)
+
+
+def instance_names(lib):
+    """Karakter kimliği → zaman çizelgelerinde verilen örnek adları."""
+    out = {}
+    for t in [lib["root"]] + list(lib["sprites"].values()):
+        for ops in t["frames"]:
+            for op in ops:
+                if "char" in op and "name" in op:
+                    out.setdefault(op["char"], set()).add(op["name"])
+    return out
+
+
+def sponsor_boxes(lib, edit_texts):
+    """Sponsor ekranlarındaki kutular: içinde sponsor ya da site metni geçen bir kutu bulunan ekranın bütün
+    yazı kutuları (kimlik kümesi). Ekran: bir sprite'ın tamamı ya da kök filmin bir karesi."""
+    screens = [[op for ops in t["frames"] for op in ops] for t in lib["sprites"].values()]
+    screens += lib["root"]["frames"]
+    out = set()
+    for ops in screens:
+        boxes = {op["char"] for op in ops if str(op.get("char")) in edit_texts}
+        if any(SPONSOR_TEXT.search(strip_html(edit_texts[str(b)].get("text", ""))) for b in boxes):
+            out |= boxes
+    return out
+
+
+def untranslated_reason(edit, names, code, sponsor=False):
+    """Çeviri tablosunda olmayan bir ekran kutusunun neden çevrilmediği. `names`: kutunun örnek adları,
+    `code`: oyunun bütün kodu (tek metin), `sponsor`: kutu bir sponsor ekranında mı."""
+    text = strip_html(edit.get("text", "")).strip()
+    if not text:
+        return "boş"
+    if not re.search(r"[A-Za-z]", text):
+        return "yalnız sayı ve işaret (oyun doldurur)"
+    if sponsor or SPONSOR_TEXT.search(text):
+        return "sponsor ya da site metni (oyunumuzda gösterilmez)"
+    if re.fullmatch(r"v\d[\d.]*[a-z]?", text):
+        return "sürüm numarası (çevrilmez)"
+    filled = edit.get("variable") or any(re.search(rf"\b{re.escape(n)}\.(?:html)?[tT]ext\s*=", code) for n in names)
+    if filled:
+        return "tasarım örneği; oyun kodla doldurur (Türkçesi kod çevirisinde)"
+    tokens = text.split()
+    if len(tokens) == 1 or all(len(t) == 1 for t in tokens):
+        return "tek kelime: özel ad ya da kodda anahtar (çevrilmez)"
+    return "ELLE BAKILMALI"
+
+
+def translation_section(game, lib, swf_root):
+    """Türkçe çevirinin kapsamı ve çevrilmeyen her ekran kutusunun nedeni."""
+    with open(os.path.join(aktar.ROOT, "content", "feudalism", game, "texts.json"), encoding="utf-8") as f:
+        texts = json.load(f)
+    tables = ceviri.load_tables(os.path.join(swf_root, ceviri.TRANSLATIONS[game], "ceviri"))
+    code = ""
+    for d, _, files in os.walk(os.path.join(aktar.ROOT, "kaynak", "feudalism", game, "kod")):
+        for n in sorted(files):
+            with open(os.path.join(d, n), encoding="utf-8", errors="replace") as f:
+                code += f.read() + "\n"
+    names = instance_names(lib)
+    sponsor = sponsor_boxes(lib, texts["edit_texts"])
+    counts = lib["translation"]["counts"]
+    sabit, kutular = ceviri.entries(tables["sabit"]), ceviri.entries(tables["kutular"])
+    s = ["### Türkçe çeviri", "",
+         f"Kaynak: `{lib['translation']['source']}` (oyunların sahibinin çevirisi). Tablolar değiştirilmeden "
+         f"`content/feudalism/{game}/ceviri/` altında; çevrilmiş kod `{lib['translation']['code']}`.", "",
+         "| Ne | Çevrilen | Toplam |", "|---|---|---|",
+         f"| Sabit yazı | {len([t for t in texts['texts'] if t in sabit])} | {len(texts['texts'])} |",
+         f"| Ekran kutusu | {len([e for e in texts['edit_texts'] if e in kutular])} | {len(texts['edit_texts'])} |",
+         f"| Kod dosyası (ekranda görünen metinler) | {counts['code_files']} | – |",
+         f"| Silah, zırh ve birlik adı | {counts['names']} | – |",
+         f"| Resim olarak çizilmiş yazı | {counts['drawn_texts']} | {len(ceviri.entries(tables['sekiller']))} |", ""]
+    rest = [(eid, e) for eid, e in sorted(texts["edit_texts"].items(), key=lambda x: int(x[0])) if eid not in kutular]
+    reasons = {}
+    for eid, e in rest:
+        reasons.setdefault(untranslated_reason(e, names.get(int(eid), set()), code, int(eid) in sponsor),
+                           []).append((eid, e))
+    s += ["Çevrilmeyen ekran kutuları ve nedeni:", "", "| Neden | Sayı | Kutular |", "|---|---|---|"]
+    for reason, items in sorted(reasons.items(), key=lambda x: (x[0] != "ELLE BAKILMALI", x[0])):
+        listed = ", ".join(f"{eid}" + (f" ({md_escape(strip_html(e.get('text', '')))[:30]})"
+                                       if strip_html(e.get("text", "")).strip() else "") for eid, e in items)
+        s.append(f"| {reason} | {len(items)} | {listed} |")
+    s.append("")
+    return s
 
 
 def game_section(game, path):
@@ -120,11 +208,14 @@ def game_section(game, path):
          f"| Resim (bit eşlem) | {len(det.images)} | {len(lib['images'])} | – |",
          f"| Ses efekti | {len(det.sounds)} | {len(lib['sounds'])} | – |",
          "| Müzik | 0 | oyunda müzik yok | – |",
-         f"| Sabit yazı | {len(det.texts)} | {len(movie.texts) - local_count('text')} (yerleşimiyle; Türkçeye çevrilecek) | "
+         f"| Sabit yazı | {len(det.texts)} | {len(movie.texts) - local_count('text')} (yerleşimiyle; Türkçesiyle) | "
          f"{local_count('text')} |",
          f"| Yazı alanı | {len(det.edit_texts)} | {len(movie.edit_texts) - local_count('edit_text')} (bütün özellikleriyle) | "
          f"{local_count('edit_text')} |",
-         f"| Yazı tipi | {len(det.fonts)} | yalnız harf kodları | {len(det.fonts)} (lisans yazı tipi yapımcısında) |",
+         f"| Yazı tipi | {len(det.fonts)} | harf kodları; yerine açık lisanslı karşılığı | {len(det.fonts)} (lisans yazı tipi "
+         f"yapımcısında) |",
+         f"| Türkçe çeviri | {lib['translation']['counts']['texts']} sabit yazı, {lib['translation']['counts']['edit_texts']} "
+         f"kutu, {lib['translation']['counts']['code_files']} kod dosyası | `content/feudalism/{game}/ceviri/` | – |",
          f"| Oyun kodu | {len(classes)} sınıf, {code_files} dosya | `kaynak/feudalism/{game}/kod` (oyuna gömülmez) | – |",
          f"| Macromedia arayüz bileşeni | {len(components)} | – | "
          f"{'hepsi (Adobe' + chr(39) + 'nin; oyunda kullanılmıyor)' if components else '–'} |",
@@ -164,11 +255,18 @@ def game_section(game, path):
         s.append(f"| {img['id']} | {size} | {note} |")
     s.append("")
     # Yazı tipleri
-    s += ["### Yazı tipleri (aktarılmayacak)", "", "| Kimlik | Ad | Biçem | Gömülü glif |", "|---|---|---|---|"]
+    with open(os.path.join(aktar.ROOT, "content", "feudalism", game, "texts.json"), encoding="utf-8") as f:
+        font_files = {int(k): v.get("file", "") for k, v in json.load(f)["fonts"].items()}
+    s += ["### Yazı tipleri", "",
+          "Gömülü hâlleri aktarılmaz (lisansları yazı tipi yapımcılarındadır); yazılar açık lisanslı karşılığıyla "
+          "çizilir (bkz. `docs/LISANSLAR.md`).", "",
+          "| Kimlik | Ad | Biçem | Gömülü glif | Karşılığı |", "|---|---|---|---|---|"]
     for fid, fo in sorted(det.fonts.items()):
         style = ", ".join(x for x, on in (("kalın", fo["bold"]), ("italik", fo["italic"])) if on) or "normal"
-        s.append(f"| {fid} | {fo['name']} | {style} | {fo['glyphs'] or 'yok (sistem yazı tipi)'} |")
+        s.append(f"| {fid} | {fo['name']} | {style} | {fo['glyphs'] or 'yok (sistem yazı tipi)'} | "
+                 f"`{font_files.get(fid, '?')}` |")
     s.append("")
+    s += translation_section(game, lib, os.path.dirname(os.path.dirname(os.path.dirname(path))))
     # Oyun kodu
     s += ["### Oyun kodunun sınıfları", "", ", ".join(f"`{c}`" for c in classes), ""]
     return s, det
@@ -186,16 +284,23 @@ def main(argv):
         out += section
         texts[game] = det
     out += ["## Ek: oyunlardaki sabit yazılar", "",
-            "Ekranlarda çizili İngilizce yazılar (çeviri için). Yazı alanlarının başlangıç değerleri ayrıca listelenir.", ""]
+            "Ekranlarda çizili yazılar ve Türkçeleri. Yazı alanlarının başlangıç değerleri ayrıca listelenir.", ""]
     for game, det in texts.items():
-        out += [f"### {NAMES[game]}", "", "| Kimlik | Yazı |", "|---|---|"]
-        out += [f"| {tid} | {md_escape(t)} |" for tid, t in det.texts if t.strip()]
+        tables = ceviri.load_tables(os.path.join(swf_root, ceviri.TRANSLATIONS[game], "ceviri"))
+        sabit, kutular = ceviri.entries(tables["sabit"]), ceviri.entries(tables["kutular"])
+        out += [f"### {NAMES[game]}", "", "| Kimlik | Yazı | Türkçesi |", "|---|---|---|"]
+        out += [f"| {tid} | {md_escape(t)} | {md_escape(' / '.join(sabit[str(tid)]['parcalar'])) if str(tid) in sabit else ''} |"
+                for tid, t in det.texts if t.strip()]
         out.append("")
         initial = [(e["id"], strip_html(e["text"])) for e in det.edit_texts if strip_html(e.get("text", "")).strip()]
         if initial:
+            def tr(eid):
+                v = kutular.get(str(eid))
+                return "" if v is None else strip_html(v if isinstance(v, str) else v.get("metin", "")).replace("html:", "")
             out += [f"Yazı alanlarının başlangıç değerleri ({NAMES[game]}): oyun bunların çoğunu çalışırken "
-                    "değiştirir; burada tasarımdaki örnek değerleri var.", "", "| Kimlik | Yazı |", "|---|---|"]
-            out += [f"| {tid} | {md_escape(t)} |" for tid, t in initial]
+                    "değiştirir; burada tasarımdaki örnek değerleri var.", "", "| Kimlik | Yazı | Türkçesi |",
+                    "|---|---|---|"]
+            out += [f"| {tid} | {md_escape(t)} | {md_escape(tr(tid))} |" for tid, t in initial]
             out.append("")
     path = os.path.join(aktar.ROOT, "docs", "FEUDALISM_ICERIK.md")
     with open(path, "w", encoding="utf-8") as f:

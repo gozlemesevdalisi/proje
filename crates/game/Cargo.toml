@@ -18,5 +18,8 @@ ron.workspace = true
 serde.workspace = true
 sim.workspace = true
 
+[dev-dependencies]
+serde_json.workspace = true
+
 [lints]
 workspace = true

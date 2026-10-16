@@ -6,6 +6,7 @@ import os
 import struct
 import sys
 import tempfile
+import types
 import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -111,6 +112,25 @@ class Records(unittest.TestCase):
         self.assertEqual(t.labels, {"walk": 0})
         self.assertEqual(t.characters(), {10})
 
+    def test_start_sound_keeps_stop_loops_points_and_envelope(self):
+        t = swf.Timeline()
+        # Yalnız ses kimliği: varsayılan çalma
+        t.add_tag(15, struct.pack("<H", 530) + b"\0")
+        # Sesi durdur (SyncStop)
+        t.add_tag(15, struct.pack("<H", 930) + bytes([0x20]))
+        t.add_tag(1, b"")
+        # Üst üste çalma yok, giriş/çıkış noktası, 3 tekrar, iki noktalı zarf
+        info = bytes([0x10 | 0x08 | 0x04 | 0x02 | 0x01]) + struct.pack("<IIH", 441, 8820, 3) + bytes([2]) \
+            + struct.pack("<IHH", 0, 0, 32768) + struct.pack("<IHH", 4410, 32768, 0)
+        t.add_tag(15, struct.pack("<H", 531) + info)
+        t.add_tag(1, b"")
+        t.finish()
+        self.assertEqual(t.sounds, {
+            0: [{"id": 530}, {"id": 930, "stop": True}],
+            1: [{"id": 531, "no_multiple": True, "in": 441, "out": 8820, "loops": 3,
+                 "envelope": [[0, 0, 32768], [4410, 32768, 0]]}],
+        })
+
     def test_button_records(self):
         rec = bytes([0x01 | 0x08]) + struct.pack("<HH", 12, 1) + matrix_bytes(tx=2) + cxform_bytes([1, 1, 1, 1], [0] * 4)
         body = struct.pack("<H", 99) + b"\0" + struct.pack("<H", 0) + rec + b"\0"
@@ -128,6 +148,21 @@ class Details(unittest.TestCase):
         snd = swf.read_sound(body)
         self.assertEqual((snd["id"], snd["format"], snd["rate"], snd["stereo"]), (530, "MP3", 11025, False))
         self.assertAlmostEqual(snd["seconds"], 1.0)
+        self.assertEqual(snd["samples"], 11025)
+
+    def test_mp3_sound_keeps_seek_and_counts_only_file_bytes(self):
+        # MP3 verisi iki baytlık başlangıç gecikmesiyle (SeekSamples, işaretli) başlar; dosyaya girmez
+        body = struct.pack("<H", 530) + bytes([(2 << 4) | (1 << 2) | 0b10]) + struct.pack("<I", 15763) \
+            + struct.pack("<h", -12) + b"\xff\xfb" + b"x" * 98
+        snd = swf.read_sound(body)
+        self.assertEqual(snd["seek"], -12)
+        self.assertEqual(snd["bytes"], 100)
+        self.assertEqual(swf.sound_file_data(body), b"\xff\xfb" + b"x" * 98)
+        # MP3 olmayan seste gecikme alanı yoktur, veri olduğu gibi kalır
+        pcm = struct.pack("<H", 7) + bytes([(3 << 4) | (1 << 2) | 0b10]) + struct.pack("<I", 2) + b"abcd"
+        self.assertNotIn("seek", swf.read_sound(pcm))
+        self.assertEqual(swf.read_sound(pcm)["bytes"], 4)
+        self.assertEqual(swf.sound_file_data(pcm), b"abcd")
 
     def test_font_codes(self):
         # DefineFont3, dar ofsetler, geniş kodlar; iki glif ('A', 'b'), boş glif şekilleri
@@ -290,6 +325,54 @@ class Files(unittest.TestCase):
 
 
 class Inventory(unittest.TestCase):
+    def test_instance_names_collect_names_given_to_each_character(self):
+        lib = {"root": {"frames": [[{"depth": 1, "char": 5, "name": "menu"}]]},
+               "sprites": {"7": {"frames": [[{"depth": 1, "char": 46, "name": "dmg_txt"}], [{"remove": 1}],
+                                            [{"depth": 2, "char": 46, "name": "dmg2_txt"}, {"depth": 3, "char": 8}]]}}}
+        self.assertEqual(envanter.instance_names(lib), {5: {"menu"}, 46: {"dmg_txt", "dmg2_txt"}})
+
+    def test_untranslated_reason_sorts_every_kind_of_box(self):
+        code = 'hp_txt.text = hero.HP;\ninfo_txt.htmlText= "x";'
+        reason = envanter.untranslated_reason
+        self.assertEqual(reason({"text": "<p></p>"}, set(), code), "boş")
+        self.assertEqual(reason({"text": "2222/2222"}, set(), code), "yalnız sayı ve işaret (oyun doldurur)")
+        self.assertEqual(reason({"text": "The game is playable at ArcadeTown"}, set(), code),
+                         "sponsor ya da site metni (oyunumuzda gösterilmez)")
+        self.assertEqual(reason({"text": "SP cost: 100"}, {"info_txt"}, code),
+                         "tasarım örneği; oyun kodla doldurur (Türkçesi kod çevirisinde)")
+        self.assertEqual(reason({"text": "Damage: 5", "variable": "dmg"}, set(), code),
+                         "tasarım örneği; oyun kodla doldurur (Türkçesi kod çevirisinde)")
+        self.assertEqual(reason({"text": "Wanderburg"}, set(), code), "tek kelime: özel ad ya da kodda anahtar (çevrilmez)")
+        # Harfleri aralıklı yazılmış ad tek kelimedir
+        self.assertEqual(reason({"text": "T i f l i s"}, set(), code), "tek kelime: özel ad ya da kodda anahtar (çevrilmez)")
+        self.assertEqual(reason({"text": "v1.041k"}, set(), code), "sürüm numarası (çevrilmez)")
+        self.assertEqual(reason({"text": "?"}, set(), code), "yalnız sayı ve işaret (oyun doldurur)")
+        # Sponsor ekranındaki her kutu, kendisi sponsor adı geçirmese de sponsor metnidir
+        self.assertEqual(reason({"text": "it is absolutely free and the game is the same."}, set(), code, sponsor=True),
+                         "sponsor ya da site metni (oyunumuzda gösterilmez)")
+        self.assertEqual(reason({"text": "Horseman Twohanded Sword"}, {"other_txt"}, code), "ELLE BAKILMALI")
+
+    def test_sponsor_sprites_are_those_holding_a_sponsor_text(self):
+        # Sprite'ın tamamı bir ekrandır; kök filmde her kare ayrı bir ekrandır
+        lib = {"sprites": {"9": {"frames": [[{"depth": 1, "char": 3125}], [{"depth": 2, "char": 3128}]]},
+                           "10": {"frames": [[{"depth": 1, "char": 46}]]}},
+               "root": {"frames": [[{"depth": 1, "char": 47}], [{"depth": 1, "char": 3130}, {"depth": 2, "char": 3129}]]}}
+        edits = {"3125": {"text": "The game is playable at ArcadeTown"}, "3128": {"text": "it is absolutely free"},
+                 "46": {"text": "Miss"}, "47": {"text": "Start"}, "3129": {"text": "And the last thing."},
+                 "3130": {"text": "http://www.arcadetown.com/"}}
+        self.assertEqual(envanter.sponsor_boxes(lib, edits), {3125, 3128, 3129, 3130})
+
+    def test_sound_uses_list_root_and_sprites_and_mark_stops(self):
+        movie = types.SimpleNamespace(root=swf.Timeline(), sprites={7: swf.Timeline()})
+        movie.root.sounds = {1: [{"id": 930, "stop": True}]}
+        movie.sprites[7].labels = {"attack": 2}
+        movie.sprites[7].sounds = {0: [{"id": 530}], 3: [{"id": 531}, {"id": 530}]}
+        self.assertEqual(envanter.sound_uses(movie, {7: "Unit"}), {
+            930: ["kök film / kare 2 (durdurur)"],
+            530: ["Unit / kare 1", "Unit / attack / kare 4"],
+            531: ["Unit / attack / kare 4"],
+        })
+
     def test_strip_html(self):
         html = '<p align="left"><font face="_sans"><b>Lv. 5</b><sbr />next</font></p>It&apos;s'
         self.assertEqual(envanter.strip_html(html), "Lv. 5\nnext\nIt's")

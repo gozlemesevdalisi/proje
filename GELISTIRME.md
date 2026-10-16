@@ -37,7 +37,7 @@ Hepsi depo kökünde çalıştırılır.
 | Bir çizimi referansla karşılaştır | `python3 araclar/olcum/olcum.py karsilastir cizim.svg kahraman iskelet.json` |
 | Pozun özgünlüğü (ve üst üste çizimi) | `python3 araclar/olcum/olcum.py ortusme iskelet.json [cizim.png]` |
 | Yan yana levha (aynı boy, %5 cetvel) | `python3 araclar/olcum/olcum.py levha cikti.png f1/1112 f1/1110 cizim.svg:iskelet.json` |
-| Feudalism görsellerini aktar | `python3 araclar/aktar/aktar.py` → `content/feudalism/` (önce `araclar/olcum/cikar.sh`) |
+| Feudalism içeriğini ve Türkçe çeviriyi aktar | `python3 araclar/aktar/aktar.py` → `content/feudalism/`, `content/fonts/` (önce `araclar/olcum/cikar.sh`) |
 | Aktarım aracının testleri   | `python3 -m unittest discover -s araclar/aktar -p 'test_*.py'` |
 | Oyunların içerik dökümü     | `python3 araclar/aktar/envanter.py` → `docs/FEUDALISM_ICERIK.md` |
 | Ayıklama denetimi           | `python3 araclar/aktar/denetim.py --gorsel` → `docs/AYIKLAMA_DENETIMI.md` (önce `cargo build --release -p engine --example svg-batch`) |
@@ -81,6 +81,12 @@ Görseller ve lisanslar:
 - Görseller `araclar/aktar/aktar.py` ile orijinal SWF dosyalarından `content/feudalism/` altına
   aktarılır; elle değiştirilmez. Oyunun yazarına ait olmayanlar aktarılmaz: sponsor logoları,
   Macromedia/Adobe arayüz bileşenleri, gömülü yazı tipleri.
+- Türkçe metinler oyunların sahibinin çevirisinden gelir (`swf-oyunlar/oyunlar/<oyun>/ceviri/`). Tablolar
+  orada durur; aktarım aracı onları değiştirmeden `content/feudalism/<oyun>/ceviri/` altına kopyalar ve
+  her girdinin hedefini doğrular (tutmayan girdi aktarımı durdurur). Bu depodan `swf-oyunlar`'a hiçbir
+  şey yazılmaz; çeviride değişiklik gerekirse sahibine sorulur.
+- Oyunların gömülü yazı tipleri aktarılmaz; yazılar açık lisanslı karşılıklarıyla çizilir (Liberation,
+  TeX Gyre; eşleme `texts.json` → `fonts.<kimlik>.file`, ayrıntı `docs/LISANSLAR.md`).
 - Aktarım aracı ya da motorun çizimi değiştiğinde `python3 araclar/aktar/denetim.py --gorsel`
   çalıştırılır ve "Toplam sorun: 0" ile bitmelidir. Denetim her kaydı FFDec'in bağımsız XML dökümüyle,
   her şekli FFDec'in çizimiyle piksel piksel karşılaştırır (rapor: `docs/AYIKLAMA_DENETIMI.md`).

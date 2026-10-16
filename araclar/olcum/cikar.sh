@@ -15,7 +15,8 @@
 #   5. Kukla yapısı ve bütün karelerin eklemleri: olcum/kukla-<oyun>.json, referans/<oyun>/pozlar.json
 #   6. Parça ölçüleri: docs/KARAKTER_OLCULERI.md
 #   7. Tam döküm (her içerik türü, XML dökümü, Flash projesi): referans/<oyun>/tam (git dışı)
-#   8. Oyuna aktarım: content/feudalism/<oyun>, kod ve liste kaynak/feudalism/<oyun>
+#   8. Oyuna aktarım: content/feudalism/<oyun> (Türkçe çeviri dahil, swf-oyunlar/oyunlar/<oyun>/ceviri),
+#      kod ve liste kaynak/feudalism/<oyun>, açık lisanslı yazı tipleri content/fonts
 #      (bkz. araclar/aktar/aktar.py), döküm belgesi docs/FEUDALISM_ICERIK.md
 # Gerekenler: Java 17+, Python 3 + Pillow, curl, unzip, sha256sum, cargo.
 set -euo pipefail
@@ -89,7 +90,13 @@ for oyun in f1 f2; do
   $FF -format text:svg -selectid "$metinler" -export text "$T/text-svg" "$swf" 2>&1 | sessiz | tail -1
   $FF -format xfl:cs5 -export xfl "$T/xfl" "$swf" 2>&1 | sessiz | tail -1
   $FF -swf2xml "$swf" "$T/swf.xml" 2>&1 | sessiz | tail -1
+  # Türkçe sürümden resim olarak çizilmiş yazıların Türkçe hâlleri (çeviri tablosu sekiller.json)
+  if [ "$oyun" = f1 ]; then klasor="$SWF_KOK/oyunlar/feudalism"; tr="$klasor/feudalism-tr.swf"; else klasor="$SWF_KOK/oyunlar/feudalism-2"; tr="$klasor/feudalism-2-tr.swf"; fi
+  cizimler=$(python3 -c "import json; print(','.join(k for k in json.load(open('$klasor/ceviri/sekiller.json', encoding='utf-8')) if not k.startswith('_')))")
+  rm -rf "$REF/$oyun/tr"
+  $FF -selectid "$cizimler" -format shape:svg -export shape "$REF/$oyun/tr/shapes" "$tr" 2>&1 | sessiz | tail -1
+  $FF -selectid "$cizimler" -format shape:png -zoom 4 -export shape "$REF/$oyun/tr/png" "$tr" 2>&1 | sessiz | tail -1
 done
-echo "Görseller, sesler ve yazılar oyunun içerik klasörüne aktarılıyor (content/feudalism, kaynak/feudalism)..."
+echo "Görseller, sesler, yazılar ve Türkçe çeviri oyunun içerik klasörüne aktarılıyor (content/feudalism, kaynak/feudalism)..."
 python3 araclar/aktar/aktar.py "$SWF_KOK"
 python3 araclar/aktar/envanter.py "$SWF_KOK"

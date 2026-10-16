@@ -21,6 +21,7 @@ pollster = "1.0"
 resvg = { version = "0.48", default-features = false }
 ron = "0.12"
 serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 skrifa = "0.48"
 usvg = { version = "0.48", default-features = false }
 wgpu = "30"

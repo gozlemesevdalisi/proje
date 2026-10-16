@@ -28,6 +28,7 @@ import xml.etree.ElementTree as ET
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import aktar  # noqa: E402
+import ceviri  # noqa: E402
 import swf  # noqa: E402
 
 ROOT = aktar.ROOT
@@ -88,6 +89,26 @@ def xml_place(el):
     return op
 
 
+def xml_sound_info(el):
+    """SOUNDINFO → library.json'daki biçim: yalnız varsayılandan farklı alanlar (bkz. swf.read_sound_info)."""
+    info = {}
+    if el is None:
+        return info
+    if el.get("syncStop") == "true":
+        info["stop"] = True
+    if el.get("syncNoMultiple") == "true":
+        info["no_multiple"] = True
+    for flag, key, attr in (("hasInPoint", "in", "inPoint"), ("hasOutPoint", "out", "outPoint"),
+                            ("hasLoops", "loops", "loopCount")):
+        if el.get(flag) == "true":
+            info[key] = int(el.get(attr))
+    if el.get("hasEnvelope") == "true":
+        records = el.find("envelopeRecords")
+        info["envelope"] = [[int(r.get("pos44")), int(r.get("leftLevel")), int(r.get("rightLevel"))]
+                            for r in (records if records is not None else [])]
+    return info
+
+
 class XmlTimeline:
     def __init__(self):
         self.frames = [[]]
@@ -106,7 +127,8 @@ class XmlTimeline:
         elif kind == "FrameLabel":
             self.labels[el.get("name")] = len(self.frames) - 1
         elif kind == "StartSound":
-            self.sounds.setdefault(len(self.frames) - 1, []).append(int(el.get("soundId")))
+            self.sounds.setdefault(len(self.frames) - 1, []).append(
+                {"id": int(el.get("soundId")), **xml_sound_info(el.find("soundInfo"))})
         elif kind == "ShowFrame":
             self.frames.append([])
 
@@ -129,6 +151,7 @@ class XmlDump:
         self.texts = {}
         self.edit_texts = {}
         self.sounds = {}
+        self.sound_samples = {}
         self.images = {}
         self.jpeg_tables = b""
         self.morph_bounds = {}
@@ -183,6 +206,7 @@ class XmlDump:
         elif kind == "DefineSound":
             self.chars[cid] = "sound"
             self.sounds[cid] = bytes.fromhex(el.get("soundData", ""))
+            self.sound_samples[cid] = int(el.get("soundSampleCount", "0"))
         elif kind == "DefineButton2":
             self.chars[cid] = "button"
             self.buttons[cid] = [button_record(r) for r in el.find("characters")]
@@ -436,7 +460,8 @@ def check_game(game, visual):
     excluded = {int(k) for k in lib["excluded"]}
     missing = [s for s in dump.sprites if str(s) not in lib["sprites"] and s not in excluded]
     probs += [f"sprite {s}: library.json'da yok ve yerel arşiv listesinde de değil" for s in missing]
-    row("Zaman çizelgeleri: her yerleştirme ve kaldırma, etiketler, sesler", checked, probs)
+    row("Zaman çizelgeleri: her yerleştirme ve kaldırma, etiketler, sesler (durdurma, tekrar, zarf dahil)",
+        checked, probs)
     # 4. Düğmeler
     probs = []
     for bid, recs in lib["buttons"].items():
@@ -498,9 +523,13 @@ def check_game(game, visual):
         raw = dump.sounds[int(sid)]
         if data != raw[2:]:
             probs.append(f"ses {sid}: dosya SWF'deki MP3 verisiyle aynı değil")
+        seek = int.from_bytes(raw[:2], "little", signed=True)
+        if s.get("seek") != seek or s.get("samples") != dump.sound_samples[int(sid)] or s.get("bytes") != len(data):
+            probs.append(f"ses {sid}: gecikme, örnek sayısı ya da boyut farklı ({s.get('seek')}/{seek}, "
+                         f"{s.get('samples')}/{dump.sound_samples[int(sid)]}, {s.get('bytes')}/{len(data)})")
         if not data[:2] in (b"\xff\xfb", b"\xff\xf3", b"\xff\xe3", b"\xff\xf2", b"\xff\xfa") and data[:3] != b"ID3":
             probs.append(f"ses {sid}: MP3 çerçeve başlığı yok")
-    row("Sesler (baytlar SWF'deki veriyle aynı)", len(lib["sounds"]), probs)
+    row("Sesler (baytlar, örnek sayısı ve MP3 gecikmesi SWF'dekiyle aynı)", len(lib["sounds"]), probs)
     # Resimler
     probs = []
     from PIL import Image
@@ -526,6 +555,16 @@ def check_game(game, visual):
         bitmap_shape_problems(game, lib, dump))
     row("İnce çizgi işaretleri (FFDec'in SVG'sindekilerle aynı)", len(lib["shapes"]) + len(lib["bitmap_shapes"]),
         hairline_problems(game, lib, archive))
+    swf_root = os.environ.get("SWF_KOK", os.path.join(ROOT, "..", "swf-oyunlar"))
+    t_probs, g_probs, c_probs, f_probs = translation_problems(game, lib, texts, dump, swf_root, archive)
+    row("Türkçe çeviri tabloları (kaynağıyla bayt bayt aynı)", len(ceviri.TABLES), t_probs)
+    row("Çeviri hedefleri (her yazı, kutu, yazı tipi ve çizim SWF'de; parça sayısı kayıt sayısıyla aynı)",
+        sum(lib.get("translation", {}).get("counts", {}).get(k, 0) for k in ("texts", "edit_texts", "drawn_texts")),
+        g_probs)
+    row("Koddaki çeviriler (çevirinin aracı FFDec'in kod dökümüne yeniden uygulanınca aynı)",
+        lib.get("translation", {}).get("counts", {}).get("code_files", 0), c_probs)
+    row("Yazı tiplerinin açık lisanslı karşılıkları (dosya kaynağıyla aynı, lisansı yanında)", len(texts["fonts"]),
+        f_probs)
     row("Morph sınırları (iki ucun SWF'deki sınırlarının birleşimi)", len(lib["morphs"]),
         morph_bounds_problems(game, lib, dump))
     # 6. Şekillerin görsel karşılaştırması
@@ -535,6 +574,9 @@ def check_game(game, visual):
             len(lib["shapes"]), probs)
         probs, worst = compare_morphs(game, lib, archive)
         row(f"Morph başlangıç ve bitişleri piksel piksel (en kötü fark %{worst:.2f})", 2 * len(lib["morphs"]), probs)
+        probs, worst = compare_drawn_texts(game, lib)
+        row(f"Çizilmiş yazıların Türkçe hâlleri, Türkçe SWF'nin çizimiyle (en kötü fark %{worst:.2f})",
+            len(lib.get("translation", {}).get("drawn_texts", {})), probs)
     return rows, problems
 
 
@@ -760,6 +802,91 @@ def hairline_problems(game, lib, archive):
     return probs
 
 
+def file_hash(path):
+    import hashlib
+    with open(path, "rb") as f:
+        return hashlib.sha256(f.read()).hexdigest()
+
+
+def tree_files(folder):
+    """Klasördeki dosyalar: göreli yol → içerik."""
+    out = {}
+    for d, _, names in os.walk(folder):
+        for n in names:
+            with open(os.path.join(d, n), "rb") as f:
+                out[os.path.relpath(os.path.join(d, n), folder).replace(os.sep, "/")] = f.read()
+    return out
+
+
+def translation_problems(game, lib, texts, dump, swf_root, archive):
+    """Türkçe çeviri: tablolar kaynağıyla bayt bayt aynı mı; her girdinin hedefi FFDec'in dökümünde var mı
+    ve sabit yazıların parça sayısı XML'deki kayıt sayısıyla aynı mı; kod çevirisi, çevirinin aracı FFDec'in
+    kod dökümüne yeniden uygulandığında aynı mı; her yazı tipinin açık lisanslı karşılığı ve lisansı yerinde
+    mi. Dönen: (tablo sorunları, hedef sorunları, kod sorunları, yazı tipi sorunları)."""
+    src = os.path.join(swf_root, ceviri.TRANSLATIONS[game], "ceviri")
+    content = os.path.join(ROOT, "content", "feudalism", game)
+    tables_probs = []
+    for name in ceviri.TABLES:
+        ours = os.path.join(content, "ceviri", f"{name}.json")
+        if not os.path.exists(ours) or file_hash(ours) != file_hash(os.path.join(src, f"{name}.json")):
+            tables_probs.append(f"{game} çeviri {name}.json: kaynağıyla aynı değil")
+    tables = ceviri.load_tables(src)
+    target_probs = []
+    for tid, entry in ceviri.entries(tables["sabit"]).items():
+        if int(tid) not in dump.texts:
+            target_probs.append(f"{game} sabit yazı {tid}: SWF'de yok")
+        elif len(entry["parcalar"]) != len(dump.texts[int(tid)]):
+            target_probs.append(f"{game} sabit yazı {tid}: çeviride {len(entry['parcalar'])} parça, SWF'de "
+                                f"{len(dump.texts[int(tid)])} kayıt")
+    target_probs += [f"{game} ekran kutusu {eid}: SWF'de yok" for eid in ceviri.entries(tables["kutular"])
+                     if int(eid) not in dump.edit_texts]
+    target_probs += [f"{game} yazı tipi {fid}: SWF'de yok" for fid in ceviri.entries(tables["yazitipleri"])
+                     if dump.chars.get(int(fid)) != "font"]
+    for sid in ceviri.entries(tables["sekiller"]):
+        if dump.chars.get(int(sid)) != "shape":
+            target_probs.append(f"{game} çizilmiş yazı {sid}: SWF'de şekil değil")
+        if lib.get("translation", {}).get("drawn_texts", {}).get(sid, {}).get("file") != f"ceviri/sekiller/{sid}.svg":
+            target_probs.append(f"{game} çizilmiş yazı {sid}: library.json'da yok")
+    with tempfile.TemporaryDirectory() as td:
+        try:
+            ceviri.translate_code(swf_root, os.path.join(archive, "scripts"), src, os.path.join(td, "kod-tr"))
+            expected = tree_files(os.path.join(td, "kod-tr"))
+        except ValueError as e:
+            expected = None
+            code_probs = [f"{game} kod çevirisi FFDec'in kod dökümüne uygulanamadı: {e}"]
+    if expected is not None:
+        ours = tree_files(os.path.join(ROOT, "kaynak", "feudalism", game, "kod-tr"))
+        code_probs = [f"{game} çevrilmiş kod {n}: yeniden üretilenle aynı değil" for n in sorted(set(expected) | set(ours))
+                      if expected.get(n) != ours.get(n)]
+    font_probs = []
+    table = tables["yazitipleri"]
+    for fid, font in texts["fonts"].items():
+        rel = ceviri.font_file(fid, font, table)
+        path = os.path.join(ROOT, "content", font.get("file", "?"))
+        if rel is None or font.get("file") != f"fonts/{os.path.basename(rel)}":
+            font_probs.append(f"{game} yazı tipi {fid}: karşılığı yanlış ({font.get('file')} / {rel})")
+        elif not os.path.exists(path) or file_hash(path) != file_hash(os.path.join(swf_root, rel)):
+            font_probs.append(f"{game} yazı tipi {fid}: {font['file']} kaynağıyla aynı değil")
+        else:
+            lic = next((name for prefix, (_, name) in ceviri.FONT_LICENSES.items()
+                        if os.path.basename(rel).startswith(prefix)), None)
+            if lic is None or not os.path.exists(os.path.join(ROOT, "content", "fonts", lic)):
+                font_probs.append(f"{game} yazı tipi {fid}: lisans metni yok")
+    return tables_probs, target_probs, code_probs, font_probs
+
+
+def compare_drawn_texts(game, lib):
+    """Çizilmiş yazıların Türkçe hâlleri: motorun çizimi, Türkçe SWF'nin FFDec çizimiyle (4×)."""
+    drawn = lib.get("translation", {}).get("drawn_texts", {})
+    with tempfile.TemporaryDirectory() as td:
+        jobs = [(os.path.join(ROOT, "content", "feudalism", game, d["file"]), os.path.join(td, f"{sid}.png"), 4)
+                for sid, d in drawn.items()]
+        render_all(jobs)
+        return compare_rendered([(f"{game} çizilmiş yazı {sid}", os.path.join(td, f"{sid}.png"), (0, 0),
+                                  os.path.join(ROOT, "referans", game, "tr", "png", f"{sid}.png"), (0, 0))
+                                 for sid in drawn])
+
+
 def morph_bounds_problems(game, lib, dump):
     """Morph uçlarımızın tuvali iki ucun SWF'deki sınırlarının birleşimi mi (başlangıç noktası ve boyut)."""
     probs = []
@@ -814,7 +941,7 @@ def main(argv):
             if len(problems) > 300:
                 out.append(f"- … ve {len(problems) - 300} sorun daha")
             out.append("")
-        print(game, "; ".join(f"{n}: {p}" for n, c, p in rows))
+        print(game, " | ".join(f"{n}: {p}" for n, c, p in rows))
     out.append(f"Toplam sorun: {all_problems}.")
     out += ["", "## Yöntem ve sınırlar", "",
             "- Kaynak: SWF'yi bizim ayrıştırıcımızdan bağımsız okuyan FFDec 24.1.1'in XML dökümü (`-swf2xml`)",
@@ -831,8 +958,16 @@ def main(argv):
             "  denetlenir: kenarların kullandığı her resim dolgusunun SVG'deki desen matrisi SWF'deki dolgu",
             "  matrisiyle, desenin resmi aktarılan resim dosyasıyla piksel piksel aynıdır. Görsel karşılaştırma",
             "  motor resim dolgusunu çizdiğinde eklenecek (Faz B).",
+            "- Sesler: dosyalar SWF'deki MP3 verisiyle bayt bayt, örnek sayısı ve MP3 başlangıç gecikmesi",
+            "  XML'deki değerlerle aynıdır. Zaman çizelgelerindeki ses kayıtları durdurma, tekrar, giriş/çıkış",
+            "  noktası ve zarf bilgisiyle karşılaştırılır.",
+            "- Türkçe çeviri: tablolar kaynağıyla (swf-oyunlar) bayt bayt aynıdır; her girdinin hedefi FFDec'in",
+            "  dökümünde aranır, sabit yazıların parça sayısı XML'deki kayıt sayısıyla karşılaştırılır. Kod",
+            "  çevirisi, çevirinin kendi aracı FFDec'in kod dökümüne yeniden uygulanarak sınanır. \"Öldün...\"",
+            "  çizimi Türkçe SWF'nin FFDec çizimiyle piksel piksel karşılaştırılır.",
             "- Aktarılmayanlar (yerel arşivde): sponsor logoları, Macromedia/Adobe arayüz bileşenleri, gömülü",
-            "  yazı tipleri. Listesi ve nedenleri `kaynak/feudalism/<oyun>/manifest.json` içindedir."]
+            "  yazı tipleri (yerine açık lisanslı karşılıkları). Listesi ve nedenleri",
+            "  `kaynak/feudalism/<oyun>/manifest.json` içindedir."]
     with open(os.path.join(ROOT, "docs", "AYIKLAMA_DENETIMI.md"), "w", encoding="utf-8") as f:
         f.write("\n".join(out) + "\n")
     return 1 if all_problems else 0

@@ -193,7 +193,7 @@ class Timeline:
     def __init__(self):
         self.frames = [[]]  # her kare: işlem listesi
         self.labels = {}  # etiket → kare sırası (0'dan)
-        self.sounds = {}  # kare sırası → [ses kimliği]
+        self.sounds = {}  # kare sırası → [{id, ses bilgisi (bkz. read_sound_info)}]
 
     def add_tag(self, code, body):
         ops = self.frames[-1]
@@ -206,7 +206,8 @@ class Timeline:
         elif code == 43:  # FrameLabel
             self.labels[body[:body.index(b"\0")].decode("latin1")] = len(self.frames) - 1
         elif code == 15:  # StartSound
-            self.sounds.setdefault(len(self.frames) - 1, []).append(struct.unpack_from("<H", body, 0)[0])
+            self.sounds.setdefault(len(self.frames) - 1, []).append(
+                {"id": struct.unpack_from("<H", body, 0)[0], **read_sound_info(body, 2)})
         elif code == 1:  # ShowFrame
             self.frames.append([])
 
@@ -359,14 +360,52 @@ SOUND_FORMATS = {0: "sıkıştırmasız", 1: "ADPCM", 2: "MP3", 3: "sıkıştır
 SOUND_RATES = {0: 5512.5, 1: 11025, 2: 22050, 3: 44100}
 
 
+def read_sound_info(body, p):
+    """SOUNDINFO (StartSound, düğme sesleri) → yalnız varsayılandan farklı alanlar: stop (sesi durdur),
+    no_multiple (çalıyorsa yeniden başlatma), in / out (44 kHz örnek olarak giriş ve çıkış noktası),
+    loops (tekrar sayısı), envelope ([[44 kHz konum, sol düzey, sağ düzey]], düzey 0–32768)."""
+    flags = body[p]
+    p += 1
+    info = {}
+    if flags & 0x20:
+        info["stop"] = True
+    if flags & 0x10:
+        info["no_multiple"] = True
+    if flags & 0x01:
+        info["in"] = struct.unpack_from("<I", body, p)[0]
+        p += 4
+    if flags & 0x02:
+        info["out"] = struct.unpack_from("<I", body, p)[0]
+        p += 4
+    if flags & 0x04:
+        info["loops"] = struct.unpack_from("<H", body, p)[0]
+        p += 2
+    if flags & 0x08:
+        count = body[p]
+        p += 1
+        info["envelope"] = [list(struct.unpack_from("<IHH", body, p + 8 * i)) for i in range(count)]
+    return info
+
+
+def sound_file_data(body):
+    """DefineSound → ses dosyasının baytları. MP3 verisi iki baytlık başlangıç gecikmesiyle (SeekSamples)
+    başlar; o alan dosyaya girmez, `read_sound` onu "seek" olarak verir."""
+    data = body[7:]
+    return data[2:] if body[2] >> 4 == 2 else data
+
+
 def read_sound(body):
-    """DefineSound → {id, format, rate, stereo, seconds, bytes}."""
+    """DefineSound → {id, format, rate, stereo, samples, seconds, bytes, [seek]}. samples: ses başına örnek
+    sayısı; bytes: ses dosyasının boyutu; seek: MP3'te baştan atlanacak örnek sayısı (kodlayıcı gecikmesi)."""
     sid = struct.unpack_from("<H", body, 0)[0]
     f = body[2]
     rate = SOUND_RATES[(f >> 2) & 3]
     samples = struct.unpack_from("<I", body, 3)[0]
-    return {"id": sid, "format": SOUND_FORMATS.get(f >> 4, str(f >> 4)), "rate": rate, "stereo": bool(f & 1),
-            "seconds": samples / rate, "bytes": len(body) - 7}
+    out = {"id": sid, "format": SOUND_FORMATS.get(f >> 4, str(f >> 4)), "rate": rate, "stereo": bool(f & 1),
+           "samples": samples, "seconds": samples / rate, "bytes": len(sound_file_data(body))}
+    if f >> 4 == 2:
+        out["seek"] = struct.unpack_from("<h", body, 7)[0]
+    return out
 
 
 def read_font(body):
