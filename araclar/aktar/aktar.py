@@ -9,12 +9,13 @@ Görseller hak sahibinin izniyle kullanılır (bkz. docs/LISANSLAR.md). Aktarıl
 
 Aktarılmayan (hak sahibinin olmayan ya da lisansı ayrı olan):
 
-- sponsor logoları (ArcadeTown, Newgrounds): `EXCLUDED`;
+- sponsor logoları (ArcadeTown, Newgrounds), oyunun kendi ekranlarında kullanılanlar da: `EXCLUDED`,
+  `third_party`;
 - Macromedia/Adobe arayüz bileşenleri (mx.*): `is_component_export`;
+- üçüncü tarafların kodu (sponsor ekranları, Adobe sınıfları, MochiAds, MochiBot): `third_party_code`;
 - gömülü yazı tipleri (yazı tiplerinin lisansı yazı tipi yapımcısındadır).
 
-Henüz aktarılmayan (sonraki adımlar): bit eşlem dolgulu şekiller, resimler, morph şekiller, yazılar,
-sesler. Kütüphanede kimlikleriyle listelenirler; oynatıcı onları şimdilik çizmez.
+Morph uçlarının renkleri ve degrade matrisleri SWF'den yazılır (`apply_animates`).
 
 Kullanım (depo kökünden; önce araclar/olcum/cikar.sh çalıştırılmış olmalı):
     python3 araclar/aktar/aktar.py [swf-oyunlar klasörü]
@@ -37,9 +38,19 @@ GAMES = {
     "f2": "oyunlar/feudalism-2/feudalism-2-orijinal.swf",
 }
 # Oyunun yazarına ait olmayan, aktarılmayan karakterler (kimlik → neden)
+# (oyunun kendi ekranlarında kullanılsa da; bkz. third_party)
 EXCLUDED = {
-    "f1": {140: "açılıştaki ArcadeTown ve Newgrounds logoları (sponsor)"},
-    "f2": {},
+    "f1": {140: "açılıştaki ArcadeTown ve Newgrounds logoları",
+           54: "ArcadeTown logosu; yükleme ekranında ve ana menünün köşesinde"},
+    "f2": {1763: "açılıştaki ArcadeTown animasyonu",
+           1962: "ArcadeTown logosu; ana menünün ve oyun sonu ekranlarının köşesinde"},
+}
+# Üçüncü tarafların dışa aktarılan sınıfları (sınıf kodunu taşıyan boş sprite'lar): ad → neden
+EXCLUDED_EXPORTS = {"__Packages.MochiAd": "MochiAds reklam kütüphanesi (üçüncü taraf)"}
+# Kendi başına üçüncü tarafın olan kod dosyaları (FFDec'in betik dökümünde): yol → (neden, içinde olması gereken)
+THIRD_PARTY_CODE = {
+    "f1": {"frame_1/DoAction_2.as": ("MochiBot izleme kodu (üçüncü taraf)", "function __com_mochibot__(")},
+    "f2": {"frame_1/DoAction_2.as": ("MochiBot izleme kodu (üçüncü taraf)", "function __com_mochibot__(")},
 }
 # Macromedia/Adobe v2 arayüz bileşenlerinin dışa aktarılan adları
 COMPONENT_EXPORTS = re.compile(
@@ -61,11 +72,12 @@ def clean_op(op):
     out = {}
     for k, v in op.items():
         if k == "matrix":
+            # 6 ondalık: SWF'deki 16.16 sabit noktalı değer bundan geri kurulabilir
             if v != [1.0, 0.0, 0.0, 1.0, 0.0, 0.0]:
-                out[k] = round_list(v)
+                out[k] = round_list(v, 6)
         elif k == "cxform":
             if v != [[1.0, 1.0, 1.0, 1.0], [0.0, 0.0, 0.0, 0.0]]:
-                out[k] = [round_list(v[0]), round_list(v[1])]
+                out[k] = [round_list(v[0], 6), round_list(v[1], 6)]
         elif k == "ratio":
             out[k] = round(v, 5)
         else:
@@ -194,21 +206,30 @@ def timeline_json(t, actions=None):
 
 # --- Morph şekiller ------------------------------------------------------------------------------
 
-def apply_animates(svg, which):
+SVG_NS = "{http://www.w3.org/2000/svg}"
+ANIMATIONS = (SVG_NS + "animate", SVG_NS + "animateTransform")
+
+
+def apply_animates(svg, which, styles=None):
     """FFDec morph SVG'sinde her öznitelik <animate values="başlangıç;bitiş"> ile verilir. `which`
     (0 başlangıç, 1 bitiş) değeri öğenin özniteliğine yazılır, <animate>'ler silinir. İki ucun yol
-    yapısı aynıdır; oynatıcı aradaki hâli oranla hesaplar."""
+    yapısı aynıdır; oynatıcı aradaki hâli oranla hesaplar.
+
+    `styles` (swf.read_morph_styles) verilirse renkler, saydamlıklar, çizgi kalınlıkları ve degrade
+    matrisleri SWF'deki değerlerden yazılır: FFDec 180° dönmüş degrade matrisini dönmesiz ayrıştırır ve
+    bitiş rengini başlangıçtan ayırmak için mavi kanala 1 ekler. Her SVG stili SWF'deki stile başlangıç
+    değerleriyle eşlenir; eşi bulunmayan ya da birden çok farklı eşi olan stil hata verir."""
     ET.register_namespace("", "http://www.w3.org/2000/svg")
     ET.register_namespace("xlink", "http://www.w3.org/1999/xlink")
     ET.register_namespace("ffdec", "https://www.free-decompiler.com/flash")
     root = ET.fromstring(re.sub(r"<\?xml[^>]*\?>", "", svg).strip())
-    ns = "{http://www.w3.org/2000/svg}"
+    resolved = resolve_morph_styles(root, styles) if styles is not None else []
     for parent in list(root.iter()):
-        for anim in [c for c in parent if c.tag == ns + "animate"]:
+        for anim in [c for c in parent if c.tag == SVG_NS + "animate"]:
             values = anim.get("values", "").split(";")
             parent.set(anim.get("attributeName"), values[which] if which < len(values) else values[-1])
             parent.remove(anim)
-        transforms = [c for c in parent if c.tag == ns + "animateTransform"]
+        transforms = [c for c in parent if c.tag == SVG_NS + "animateTransform"]
         if transforms:
             # Sırayla uygulanır: "replace" baştan başlatır, "sum" öncekinin ardına ekler
             m = (1.0, 0.0, 0.0, 1.0, 0.0, 0.0)
@@ -218,7 +239,151 @@ def apply_animates(svg, which):
                 parent.remove(anim)
             parent.set(transforms[0].get("attributeName"),
                        "matrix(" + ", ".join(f"{round(v, 6):g}" for v in m) + ")")
+    end = "start" if which == 0 else "end"
+    for el, role, style in resolved:
+        if role == "gradient":
+            write_gradient(el, style, end)
+        elif role == "fill":
+            el.set("fill", hex_colour(style[end]))
+            el.set("fill-opacity", opacity(style[end][3]))
+        elif role == "line":
+            el.set("stroke", hex_colour(style[end]["color"]))
+            el.set("stroke-opacity", opacity(style[end]["color"][3]))
+            el.set("stroke-width", number(style[end]["width"]))
     return ET.tostring(root, encoding="unicode")
+
+
+def number(v):
+    """Sayı SVG'ye 6 ondalıkla (16.16 sabit noktalı değer bundan geri kurulabilir)."""
+    v = round(v, 6)
+    return repr(0.0 if v == 0 else v)
+
+
+def opacity(alpha):
+    return repr(round(alpha / 255, 7))
+
+
+def hex_colour(rgba):
+    return "#%02x%02x%02x" % tuple(rgba[:3])
+
+
+def write_gradient(el, style, end):
+    el.set("gradientTransform", "matrix(" + ", ".join(number(v) for v in style[end]["matrix"]) + ")")
+    if "focal" in style[end]:
+        el.set("fx", number(style[end]["focal"] * 819.2))
+    for stop, (ratio, rgba) in zip([c for c in el if c.tag == SVG_NS + "stop"], style[end]["stops"]):
+        stop.set("offset", repr(ratio / 255))
+        stop.set("stop-color", hex_colour(rgba))
+        stop.set("stop-opacity", opacity(rgba[3]))
+
+
+def start_value(el, name, default=None):
+    """Öğenin bir özniteliğinin başlangıç değeri: <animate> varsa onun ilk değeri, yoksa öznitelik."""
+    for anim in el:
+        if anim.tag == SVG_NS + "animate" and anim.get("attributeName") == name:
+            return anim.get("values", "").split(";")[0]
+    return el.get(name, default)
+
+
+def parse_matrix(text):
+    m = re.match(r"\s*matrix\(([^)]*)\)", text or "")
+    return [float(v) for v in re.split(r"[\s,]+", m.group(1).strip())] if m else [1.0, 0.0, 0.0, 1.0, 0.0, 0.0]
+
+
+def same_colour(text, op, rgba):
+    """FFDec'in yazdığı renk ve saydamlık (#rrggbb, 0–1) SWF'deki [r, g, b, a] ile aynı mı."""
+    return (text or "").lower() == hex_colour(rgba) and abs(float(op) - rgba[3] / 255) < 1e-3
+
+
+def gradient_matches(el, fill):
+    """SVG degradesinin başlangıcı SWF'deki degrade dolgusunun başlangıcıyla aynı mı (FFDec matrisi 4
+    ondalığa yuvarlar; öteleme twip'in 1/20'si olarak tamdır)."""
+    kind = el.tag[len(SVG_NS):]
+    if fill["type"] not in (("linear",) if kind == "linearGradient" else ("radial", "focal")):
+        return False
+    ours = parse_matrix(el.get("gradientTransform"))
+    theirs = fill["start"]["matrix"]
+    if any(abs(a - b) > 6e-5 for a, b in zip(ours[:4], theirs[:4])) or \
+            any(abs(a - b) > 1e-3 for a, b in zip(ours[4:], theirs[4:])):
+        return False
+    stops = [c for c in el if c.tag == SVG_NS + "stop"]
+    if len(stops) != len(fill["start"]["stops"]):
+        return False
+    return all(abs(float(start_value(s, "offset", "0")) - ratio / 255) < 1e-3
+               and same_colour(start_value(s, "stop-color"), start_value(s, "stop-opacity", "1"), rgba)
+               for s, (ratio, rgba) in zip(stops, fill["start"]["stops"]))
+
+
+def end_value(el, name, default=None):
+    """Öğenin bir özniteliğinin FFDec'teki bitiş değeri: <animate> varsa onun son değeri, yoksa öznitelik."""
+    for anim in el:
+        if anim.tag == SVG_NS + "animate" and anim.get("attributeName") == name:
+            return anim.get("values", "").split(";")[-1]
+    return el.get(name, default)
+
+
+def near_colour(text, op, rgba):
+    """FFDec'in bitiş rengi SWF'dekine yakın mı: kırmızı ve yeşil aynı, mavi en çok 1 farklı (FFDec bitiş
+    rengini başlangıçtan ayırmak için maviye 1 ekler), saydamlık aynı."""
+    text = (text or "").lstrip("#")
+    if len(text) != 6:
+        return False
+    r, g, b = int(text[0:2], 16), int(text[2:4], 16), int(text[4:6], 16)
+    return r == rgba[0] and g == rgba[1] and abs(b - rgba[2]) <= 1 and abs(float(op) - rgba[3] / 255) < 1e-3
+
+
+def unique_style(candidates, what, end_ok):
+    """Başlangıcı eşleşen SWF stillerinden, FFDec'in bitiş değerlerine de uyan tek bir sonuç (hepsi aynı
+    değerdeyse ilki). Hiçbiri uymuyorsa ya da farklı birden çoğu uyuyorsa hata."""
+    if not candidates:
+        raise ValueError(f"morph: {what} SWF'deki hiçbir stile uymuyor")
+    fitting = [c for c in candidates if end_ok(c)]
+    if not fitting:
+        raise ValueError(f"morph: {what} bitişi SWF'deki adayların hiçbirine uymuyor")
+    if any(c != fitting[0] for c in fitting[1:]):
+        raise ValueError(f"morph: {what} SWF'de başlangıcı aynı, bitişi farklı birden çok stile uyuyor")
+    return fitting[0]
+
+
+def gradient_end_fits(el, fill):
+    """Degradenin FFDec'teki bitiş durakları SWF'deki bitişe yakın mı (matris karşılaştırılmaz: FFDec'in
+    ayrıştırması dönmeyi kaybedebilir)."""
+    stops = [c for c in el if c.tag == SVG_NS + "stop"]
+    return all(abs(float(end_value(s, "offset", "0")) - ratio / 255) < 1e-3
+               and near_colour(end_value(s, "stop-color"), end_value(s, "stop-opacity", "1"), rgba)
+               for s, (ratio, rgba) in zip(stops, fill["end"]["stops"]))
+
+
+def resolve_morph_styles(root, styles):
+    """SVG'deki her degradeyi, düz dolguyu ve çizgiyi SWF'deki stiliyle eşler: [(öğe, rol, stil)]."""
+    fills = styles["fills"] + [line["fill"] for line in styles["lines"] if "fill" in line]
+    out = []
+    for el in root.iter():
+        kind = el.tag[len(SVG_NS):] if el.tag.startswith(SVG_NS) else el.tag
+        if kind in ("linearGradient", "radialGradient"):
+            out.append((el, "gradient", unique_style([f for f in fills if f["type"] != "solid" and f["type"] != "bitmap"
+                                                      and gradient_matches(el, f)], f"degrade {el.get('id')}",
+                                                     lambda f, el=el: gradient_end_fits(el, f))))
+        elif kind == "path":
+            fill = el.get("fill", "none")
+            if fill.startswith("#"):
+                found = [f for f in fills if f["type"] == "solid"
+                         and same_colour(start_value(el, "fill"), start_value(el, "fill-opacity", "1"), f["start"])]
+                out.append((el, "fill", unique_style(
+                    found, f"düz dolgu {fill}",
+                    lambda f, el=el: near_colour(end_value(el, "fill"), end_value(el, "fill-opacity", "1"), f["end"]))))
+            stroke = el.get("stroke", "none")
+            if stroke.startswith("#"):
+                found = [line for line in styles["lines"] if "color" in line["start"]
+                         and same_colour(start_value(el, "stroke"), start_value(el, "stroke-opacity", "1"),
+                                         line["start"]["color"])
+                         and abs(float(start_value(el, "stroke-width", "1")) - line["start"]["width"]) < 1e-3]
+                out.append((el, "line", unique_style(
+                    found, f"çizgi {stroke}",
+                    lambda line, el=el: near_colour(end_value(el, "stroke"), end_value(el, "stroke-opacity", "1"),
+                                                    line["end"]["color"])
+                    and abs(float(end_value(el, "stroke-width", "1")) - line["end"]["width"]) < 1e-3)))
+    return out
 
 
 def multiply(m1, m2):
@@ -318,18 +483,78 @@ DISPOSITION = {
 
 
 def third_party(game, movie):
-    """Oyunun yazarına ait olmayan karakterler: sponsor ve Macromedia bileşen ağaçları (oyunun kendi
-    sembollerince de kullanılanlar hariç). Kimlik → neden."""
-    game_roots = (movie.root.characters() - set(EXCLUDED[game])) | {
-        c for n, c in movie.exports.items() if not is_component_export(n) and c not in EXCLUDED[game]}
-    used_by_game = movie.reachable(game_roots)
+    """Oyunun yazarına ait olmayan karakterler: sponsor ve Macromedia bileşen ağaçları. Kimlik → neden.
+
+    `EXCLUDED`'daki her sponsor kökü, oyunun kendi sembollerinde kullanılsa da dışarıda kalır (ör. ana
+    menünün köşesindeki ArcadeTown logosu): oyunun ağacı taranırken sponsor köklerine girilmez. Bir sponsor
+    kökünün altındaki karakter yalnız oyunun da (sponsor kökleri dışından) kullanmadığı durumda dışarıda
+    kalır (ör. düğmelerin genel tıklama alanı aktarılır). Her karakterin nedeni, ona sponsor kökleri
+    arasından ulaşan kökün nedenidir (birden çoksa en küçük kimlikli)."""
+    sponsor = set(EXCLUDED[game])
+    game_roots = (movie.root.characters() - sponsor) | {
+        c for n, c in movie.exports.items() if not is_component_export(n) and c not in sponsor}
+    used_by_game = movie.reachable(game_roots, blocked=sponsor)
     out = {}
-    for cid in movie.reachable(set(EXCLUDED[game])) - used_by_game:
-        out[cid] = "sponsor: " + EXCLUDED[game][min(EXCLUDED[game])]
-    comp = {c for n, c in movie.exports.items() if is_component_export(n) and not n.startswith("__Packages.")}
-    for cid in movie.reachable(comp) - used_by_game:
+    for root in sorted(sponsor):
+        for cid in sorted(movie.reachable({root}, blocked=sponsor - {root}) - used_by_game):
+            out.setdefault(cid, "sponsor: " + EXCLUDED[game][root])
+    for name, reason in EXCLUDED_EXPORTS.items():
+        if name in movie.exports:
+            out.setdefault(movie.exports[name], reason)
+    comp = {c for n, c in movie.exports.items()
+            if (is_component_export(n) and not n.startswith("__Packages.")) or n.startswith("__Packages.mx.")}
+    for cid in movie.reachable(comp, blocked=sponsor) - used_by_game - set(out):
         out[cid] = "Macromedia/Adobe arayüz bileşeni (oyunda kullanılmıyor)"
     return out
+
+
+CONTAINER = re.compile(r"^(?:DefineSprite|DefineButton2?)_(\d+)(?:_.*)?$")
+CLIP_PLACE = re.compile(r"^PlaceObject\d?_(\d+)(?:_.+)?_\d+$")
+
+
+UNNAMED_INIT = re.compile(r"^DoInitAction(?:_(\d+))?\.as$")
+
+
+def third_party_code(game, rel, tp, exports, unnamed_inits=()):
+    """FFDec betik dökümündeki bir kod dosyası (göreli yol) üçüncü tarafınsa nedeni, değilse None: dışarıda
+    bırakılan bir karakterin (sprite, düğme) kodu, dışarıda bırakılan karakteri yerleştiren klip eylemi,
+    dışarıda bırakılan dışa aktarılmış sınıfın kodu, ya da `THIRD_PARTY_CODE` listesindeki dosya.
+    `unnamed_inits`: dışa aktarılmamış sprite'ların sınıf kodları, SWF'deki sırayla (FFDec onları
+    DoInitAction.as, DoInitAction_2.as ... diye yazar)."""
+    if rel in THIRD_PARTY_CODE.get(game, {}):
+        return THIRD_PARTY_CODE[game][rel][0]
+    m = UNNAMED_INIT.match(rel)
+    if m:
+        i = int(m.group(1) or 1) - 1
+        cid = unnamed_inits[i] if i < len(unnamed_inits) else None
+        return tp.get(cid)
+    parts = rel.split("/")
+    if len(parts) == 1 or parts[0] == "__Packages":
+        name = ".".join(parts)[:-len(".as")]
+        cid = exports.get(name)
+        if cid in tp:
+            return tp[cid]
+    for part in parts[:-1]:
+        m = CONTAINER.match(part) or CLIP_PLACE.match(part)
+        if m and int(m.group(1)) in tp:
+            return tp[int(m.group(1))]
+    return None
+
+
+def prune_code(folder, reason_of):
+    """Klasördeki kod dosyalarından `reason_of(göreli yol)` bir neden verenleri siler (boş kalan klasörler
+    de silinir). Dönen: {silinen göreli yol: neden}."""
+    removed = {}
+    for d, _, names in os.walk(folder, topdown=False):
+        for n in names:
+            rel = os.path.relpath(os.path.join(d, n), folder).replace(os.sep, "/")
+            reason = reason_of(rel)
+            if reason:
+                os.remove(os.path.join(d, n))
+                removed[rel] = reason
+        if d != folder and not os.listdir(d):
+            os.rmdir(d)
+    return removed
 
 
 def reset_dir(path):
@@ -392,7 +617,9 @@ def build(game, swf_path, archive, out_dir, code_dir, swf_root=None, tr_archive=
     for mid in keep("morph"):
         with open(os.path.join(archive, "morphshapes", f"{mid}.svg"), encoding="utf-8") as f:
             raw = f.read()
-        start, end = apply_animates(raw, 0), apply_animates(raw, 1)
+        code, body = movie.morph_bodies[mid]
+        styles = swf.read_morph_styles(body, code)
+        start, end = apply_animates(raw, 0, styles), apply_animates(raw, 1, styles)
         for suffix, text in (("", raw), (".start", start), (".end", end)):
             with open(os.path.join(out_dir, "morphs", f"{mid}{suffix}.svg"), "w", encoding="utf-8") as f:
                 f.write(clean_svg(text))
@@ -505,6 +732,19 @@ def build(game, swf_path, archive, out_dir, code_dir, swf_root=None, tr_archive=
     with open(os.path.join(out_dir, "library.json"), "w", encoding="utf-8") as f:
         json.dump(library, f, ensure_ascii=False, separators=(",", ":"))
         f.write("\n")
+    # Üçüncü tarafların kodu kaynak/ altına girmez (yalnız yerel arşivde, FFDec dökümünde kalır)
+    for rel, (reason, marker) in THIRD_PARTY_CODE.get(game, {}).items():
+        with open(os.path.join(archive, "scripts", rel), encoding="utf-8") as f:
+            if marker not in f.read():
+                raise ValueError(f"{game}: {rel} beklenen üçüncü taraf kodu değil ({reason})")
+    named = set(movie.exports.values())
+    unnamed = [cid for cid in movie.init_actions if cid not in named]
+
+    def reason_of(rel):
+        return third_party_code(game, rel, tp, movie.exports, unnamed)
+    code_excluded = prune_code(os.path.join(code_dir, "kod"), reason_of)
+    if os.path.isdir(os.path.join(code_dir, "kod-tr")):
+        prune_code(os.path.join(code_dir, "kod-tr"), reason_of)
     # Manifest: her karakterin ve her etiket türünün nereye gittiği
     for cid, reason in tp.items():
         where[cid] = "yalnız yerel arşiv: " + reason
@@ -520,6 +760,7 @@ def build(game, swf_path, archive, out_dir, code_dir, swf_root=None, tr_archive=
                          sorted(set(named_counts(movie.tag_counts)) | set(named_counts(movie.sprite_tag_counts)))},
         "characters": {str(c): {"type": movie.kind(c), "where": where.get(c, "EKSİK")} for c in sorted(all_chars)},
         "missing": missing,
+        "code_excluded": dict(sorted(code_excluded.items())),
         "file_info": file_info(movie),
     }
     with open(os.path.join(code_dir, "manifest.json"), "w", encoding="utf-8") as f:

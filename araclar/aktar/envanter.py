@@ -119,16 +119,25 @@ def sponsor_boxes(lib, edit_texts):
     return out
 
 
+# Çeviri tablosunda olmayan, ekranlara bakılarak bulunmuş çizilmiş yazılar: (şekil, yazı, durum)
+KNOWN_DRAWN_TEXTS = {
+    "f1": [(995, "The Age of...", "ana menünün alt başlığı; çeviri tablosunda yok, sahibine sorulacak"),
+           (1019, "FEUDALISM", "oyunun adı; özel ad, çevrilmez")],
+    "f2": [(None, "Feudalism II", "ana menüdeki oyunun adı; özel ad, çevrilmez")],
+}
+SPONSOR_REASON = "sponsor ya da site metni (gösterilip gösterilmeyeceği oyunların sahibinin kararı; henüz sorulmadı)"
+
+
 def untranslated_reason(edit, names, code, sponsor=False):
     """Çeviri tablosunda olmayan bir ekran kutusunun neden çevrilmediği. `names`: kutunun örnek adları,
     `code`: oyunun bütün kodu (tek metin), `sponsor`: kutu bir sponsor ekranında mı."""
     text = strip_html(edit.get("text", "")).strip()
     if not text:
         return "boş"
-    if not re.search(r"[A-Za-z]", text):
+    if not any(ch.isalpha() for ch in text):  # her alfabeden harf (Latin dışı da)
         return "yalnız sayı ve işaret (oyun doldurur)"
     if sponsor or SPONSOR_TEXT.search(text):
-        return "sponsor ya da site metni (oyunumuzda gösterilmez)"
+        return SPONSOR_REASON
     if re.fullmatch(r"v\d[\d.]*[a-z]?", text):
         return "sürüm numarası (çevrilmez)"
     filled = edit.get("variable") or any(re.search(rf"\b{re.escape(n)}\.(?:html)?[tT]ext\s*=", code) for n in names)
@@ -162,7 +171,13 @@ def translation_section(game, lib, swf_root):
          f"| Ekran kutusu | {len([e for e in texts['edit_texts'] if e in kutular])} | {len(texts['edit_texts'])} |",
          f"| Kod dosyası (ekranda görünen metinler) | {counts['code_files']} | – |",
          f"| Silah, zırh ve birlik adı | {counts['names']} | – |",
-         f"| Resim olarak çizilmiş yazı | {counts['drawn_texts']} | {len(ceviri.entries(tables['sekiller']))} |", ""]
+         f"| Resim olarak çizilmiş yazı | {counts['drawn_texts']} | – (kendiliğinden bulunamaz; bilinenler aşağıda) |", ""]
+    s += ["Resim olarak çizilmiş yazılar, ekranlara bakılarak bulunanlar (başkaları da olabilir):", ""]
+    s += [f"- şekil {sid}: \"{d.get('metin', '')}\" → çevrildi (`ceviri/sekiller/{sid}.svg`)"
+          for sid, d in ceviri.entries(tables["sekiller"]).items()]
+    s += [f"- {'şekil ' + str(sid) if sid else 'birkaç parça'}: \"{text}\" → {note}"
+          for sid, text, note in KNOWN_DRAWN_TEXTS.get(game, [])]
+    s.append("")
     rest = [(eid, e) for eid, e in sorted(texts["edit_texts"].items(), key=lambda x: int(x[0])) if eid not in kutular]
     reasons = {}
     for eid, e in rest:
@@ -191,6 +206,7 @@ def game_section(game, path):
         return sum(1 for k in local if man["characters"][k]["type"] == kind)
     game_exports = sorted(n for n in movie.exports if not aktar.is_component_export(n))
     components = sorted(n for n in movie.exports if aktar.is_component_export(n) and not n.startswith("__Packages."))
+    sponsor_count = sum(1 for v in lib["excluded"].values() if v.startswith("sponsor"))
     classes = sorted(n[len("__Packages."):] for n in movie.exports if n.startswith("__Packages.")
                      and not n.startswith("__Packages.mx."))
     code_files = sum(len(files) for _, _, files in os.walk(os.path.join(aktar.ROOT, "kaynak", "feudalism", game, "kod")))
@@ -219,8 +235,10 @@ def game_section(game, path):
          f"| Oyun kodu | {len(classes)} sınıf, {code_files} dosya | `kaynak/feudalism/{game}/kod` (oyuna gömülmez) | – |",
          f"| Macromedia arayüz bileşeni | {len(components)} | – | "
          f"{'hepsi (Adobe' + chr(39) + 'nin; oyunda kullanılmıyor)' if components else '–'} |",
-         f"| Sponsor parçası | {len(aktar.EXCLUDED[game])} sembol | – | "
-         f"{'hepsi (sponsorun)' if aktar.EXCLUDED[game] else '–'} |", "",
+         f"| Sponsor parçası | {len(aktar.EXCLUDED[game])} kök sembol, altlarıyla {sponsor_count} karakter | – | "
+         f"hepsi (sponsorun; oyunun ekranlarında kullanılanlar dahil) |",
+         f"| Üçüncü taraf kodu | {len(man.get('code_excluded', {}))} dosya | – | hepsi (sponsor, Adobe, MochiAds, "
+         f"MochiBot; listesi manifest.json → code_excluded) |", "",
          f"Eksik kalan karakter: {len(man['missing'])}. Tanınmayan etiket türü: "
          f"{sum(1 for v in man['dispositions'].values() if v == 'TANINMAYAN ETİKET')}. Her karakterin ve her etiket "
          f"türünün nereye gittiği: `kaynak/feudalism/{game}/manifest.json`.", ""]

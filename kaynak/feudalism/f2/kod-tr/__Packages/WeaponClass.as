@@ -1,15 +1,20 @@
 class WeaponClass extends Item
 {
    var FRAME;
+   var LEVEL;
    var NAME;
+   var NATION;
    var TYPE;
    var canBeMounted;
    var crit;
    var dmg;
+   var getFrame;
+   var initEnchant;
    var price;
    var require_param;
    var require_value;
    var rnd;
+   var setRefine;
    var skill;
    var rng = 0;
    var aspd_bonus = 0;

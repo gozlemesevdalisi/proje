@@ -90,41 +90,69 @@ def read_cxform(b, alpha=True):
     return [mul, add]
 
 
+def _filter_flags(byte, on_top):
+    """Süzgeç bayrak baytı: iç, delme, bileşim, [üstte], geçiş sayısı."""
+    out = {"inner": bool(byte & 0x80), "knockout": bool(byte & 0x40), "composite": bool(byte & 0x20)}
+    if on_top:
+        out["on_top"] = bool(byte & 0x10)
+        out["passes"] = byte & 0x0F
+    else:
+        out["passes"] = byte & 0x1F
+    return out
+
+
 def read_filters(data, p):
-    """FILTERLIST → ([{tür, ...}], yeni konum). Süzgeçler kaydedilir; oynatıcı şimdilik çizmez."""
+    """FILTERLIST → ([{tür, bütün alanları}], yeni konum). Bulanıklık, açı ve uzaklık 16.16, güç 8.8 sabit
+    noktalıdır; açı radyan. Oynatıcı süzgeçleri şimdilik çizmez."""
     count = data[p]
     p += 1
     out = []
     for _ in range(count):
         kind = data[p]
         p += 1
-        if kind == 0:  # DropShadow
+        if kind == 0:  # DropShadow: renk, bulanıklık x/y, açı, uzaklık, güç, bayraklar (23 bayt)
             rgba = list(data[p:p + 4])
             bx, by, ang, dist, strength = struct.unpack_from("<iiiih", data, p + 4)
             out.append({"type": "drop_shadow", "color": rgba, "blur": [bx / 65536, by / 65536],
-                        "angle": ang / 65536, "distance": dist / 65536, "strength": strength / 256})
-            p += 4 + 16 + 2 + 1
-        elif kind == 1:  # Blur
+                        "angle": ang / 65536, "distance": dist / 65536, "strength": strength / 256,
+                        **_filter_flags(data[p + 22], False)})
+            p += 23
+        elif kind == 1:  # Blur: bulanıklık x/y, geçiş sayısı (9 bayt)
             bx, by = struct.unpack_from("<ii", data, p)
-            out.append({"type": "blur", "blur": [bx / 65536, by / 65536]})
+            out.append({"type": "blur", "blur": [bx / 65536, by / 65536], "passes": data[p + 8] >> 3})
             p += 9
-        elif kind == 2:  # Glow
+        elif kind == 2:  # Glow: renk, bulanıklık x/y, güç, bayraklar (15 bayt)
             rgba = list(data[p:p + 4])
             bx, by, strength = struct.unpack_from("<iih", data, p + 4)
             out.append({"type": "glow", "color": rgba, "blur": [bx / 65536, by / 65536], "strength": strength / 256,
-                        "inner": bool(data[p + 14] & 0x80), "knockout": bool(data[p + 14] & 0x40)})
+                        **_filter_flags(data[p + 14], False)})
             p += 15
-        elif kind == 3:  # Bevel
-            out.append({"type": "bevel"})
-            p += 4 + 4 + 16 + 2 + 1 + 4
+        elif kind == 3:  # Bevel: gölge ve parlak renk, bulanıklık x/y, açı, uzaklık, güç, bayraklar (27 bayt)
+            bx, by, ang, dist, strength = struct.unpack_from("<iiiih", data, p + 8)
+            out.append({"type": "bevel", "shadow": list(data[p:p + 4]), "highlight": list(data[p + 4:p + 8]),
+                        "blur": [bx / 65536, by / 65536], "angle": ang / 65536, "distance": dist / 65536,
+                        "strength": strength / 256, **_filter_flags(data[p + 26], True)})
+            p += 27
         elif kind in (4, 7):  # GradientGlow, GradientBevel
             n = data[p]
-            p += 1 + n * 5 + 4 * 4 + 2 + 1
-            out.append({"type": "gradient_glow" if kind == 4 else "gradient_bevel"})
+            colours = [list(data[p + 1 + 4 * i:p + 5 + 4 * i]) for i in range(n)]
+            ratios = list(data[p + 1 + 4 * n:p + 1 + 5 * n])
+            q = p + 1 + 5 * n
+            bx, by, ang, dist, strength = struct.unpack_from("<iiiih", data, q)
+            out.append({"type": "gradient_glow" if kind == 4 else "gradient_bevel",
+                        "stops": [[r, c] for r, c in zip(ratios, colours)], "blur": [bx / 65536, by / 65536],
+                        "angle": ang / 65536, "distance": dist / 65536, "strength": strength / 256,
+                        **_filter_flags(data[q + 18], True)})
+            p = q + 19
         elif kind == 5:  # Convolution
             mx, my = data[p], data[p + 1]
-            p += 2 + 4 + 4 + mx * my * 4 + 4 + 1
-            out.append({"type": "convolution"})
+            divisor, bias = struct.unpack_from("<ff", data, p + 2)
+            matrix = list(struct.unpack_from(f"<{mx * my}f", data, p + 10))
+            q = p + 10 + mx * my * 4
+            out.append({"type": "convolution", "size": [mx, my], "divisor": divisor, "bias": bias, "matrix": matrix,
+                        "default_color": list(data[q:q + 4]), "clamp": bool(data[q + 4] & 0x02),
+                        "preserve_alpha": bool(data[q + 4] & 0x01)})
+            p = q + 5
         elif kind == 6:  # ColorMatrix
             values = struct.unpack_from("<20f", data, p)
             out.append({"type": "color_matrix", "matrix": [round(v, 5) for v in values]})
@@ -181,9 +209,16 @@ def read_place(body, code):
             p += 1
         if flags2 & 0x04:
             p += 1  # bit eşlem önbelleği: çizimi değiştirmez
+        if flags2 & 0x20:
+            op["visible"] = bool(body[p])
+            p += 1
+        if flags2 & 0x40:
+            op["background"] = list(body[p:p + 4])
+            p += 4
     if flags & 0x80:
         # Klip eylemleri (onClipEvent): oyunun kodu; metni FFDec'in betik dökümündedir
         op["clip_actions"] = True
+        op["_clip_actions_at"] = p
     return op
 
 
@@ -198,13 +233,19 @@ class Timeline:
     def add_tag(self, code, body):
         ops = self.frames[-1]
         if code in (26, 70):
-            ops.append(read_place(body, code))
+            op = read_place(body, code)
+            op.pop("_clip_actions_at", None)
+            ops.append(op)
         elif code == 28:  # RemoveObject2
             ops.append({"remove": struct.unpack_from("<H", body, 0)[0]})
         elif code == 5:  # RemoveObject
             ops.append({"remove": struct.unpack_from("<H", body, 2)[0]})
         elif code == 43:  # FrameLabel
-            self.labels[body[:body.index(b"\0")].decode("latin1")] = len(self.frames) - 1
+            label = body[:body.index(b"\0")].decode("latin1")
+            if label in self.labels:
+                # Etiketler ada göre tutulur; aynı ad ikinci kez gelirse biri kaybolurdu
+                raise ValueError(f"aynı adlı iki kare etiketi: {label!r}")
+            self.labels[label] = len(self.frames) - 1
         elif code == 15:  # StartSound
             self.sounds.setdefault(len(self.frames) - 1, []).append(
                 {"id": struct.unpack_from("<H", body, 0)[0], **read_sound_info(body, 2)})
@@ -269,6 +310,9 @@ class Movie:
         self.font_bodies = {}
         self.csm = {}
         self.sound_bodies = {}
+        self.morph_bodies = {}
+        self.init_actions = []  # sınıf kodlarının (DoInitAction) sprite kimlikleri, SWF'deki sırayla
+        self.shape_bodies = {}
         self.other = []  # sahne bilgisi etiketleri: (kod, gövde)
         for code, body in tags(data, pos):
             self.tag_counts[code] = self.tag_counts.get(code, 0) + 1
@@ -277,8 +321,10 @@ class Movie:
                 self.background = "#%02X%02X%02X" % tuple(body[:3])
             elif code in SHAPE_TAGS:
                 self.shapes.add(cid)
+                self.shape_bodies[cid] = (code, body)
             elif code in MORPH_TAGS:
                 self.morphs.add(cid)
+                self.morph_bodies[cid] = (code, body)
             elif code in BITMAP_TAGS:
                 self.bitmaps.add(cid)
             elif code in TEXT_TAGS:
@@ -295,6 +341,9 @@ class Movie:
             elif code == 14:
                 self.sounds.add(cid)
                 self.sound_bodies[cid] = body
+            elif code == 59:
+                self.init_actions.append(cid)
+                self.root.add_tag(code, body)
             elif code == 34:
                 bid, records = read_button(body)
                 self.buttons[bid] = records
@@ -340,8 +389,9 @@ class Movie:
             return {r["char"] for r in self.buttons[cid]}
         return set()
 
-    def reachable(self, roots):
-        """Köklerden (karakter kimlikleri) ulaşılan bütün karakterler."""
+    def reachable(self, roots, blocked=frozenset()):
+        """Köklerden (karakter kimlikleri) ulaşılan bütün karakterler. `blocked` içindeki karakterlere
+        girilmez (kök olarak verilmedikçe): ne kendileri ne de altları sayılır."""
         seen = set()
         stack = list(roots)
         while stack:
@@ -349,7 +399,7 @@ class Movie:
             if cid in seen:
                 continue
             seen.add(cid)
-            stack.extend(self.children(cid) - seen)
+            stack.extend(self.children(cid) - seen - set(blocked))
         return seen
 
 
@@ -629,3 +679,211 @@ def read_csm(body):
     thickness, sharpness = struct.unpack_from("<ff", body, 3)
     return {"text": tid, "flash_type": bool(flags >> 6 & 3), "grid_fit": ["none", "pixel", "subpixel"][(flags >> 3) & 3]
             if (flags >> 3) & 3 < 3 else "?", "thickness": round(thickness, 4), "sharpness": round(sharpness, 4)}
+
+
+# --- Morph şekillerin stilleri ---------------------------------------------------------------------
+
+def _rgba(b):
+    return [b.u8(), b.u8(), b.u8(), b.u8()]
+
+
+def _rect(b):
+    b.align()
+    n = b.ub(5)
+    r = [b.sb(n) / 20 for _ in range(4)]
+    b.align()
+    return r
+
+
+def read_morph_fill(b):
+    """MORPHFILLSTYLE → {type, start, end}. Düz renk: start/end [r, g, b, a]. Degrade: start/end
+    {matrix, stops: [[oran 0–255, [r, g, b, a]]], focal}, spread, interpolation. Resim: bitmap, start/end
+    {matrix}. Degrade matrisi twip biriminde değil SVG'deki gibi pikseldir (öteleme / 20)."""
+    kind = b.u8()
+    if kind == 0x00:
+        return {"type": "solid", "start": _rgba(b), "end": _rgba(b)}
+    if kind in (0x10, 0x12, 0x13):
+        m0, m1 = read_matrix(b), read_matrix(b)
+        b.align()
+        spread = b.ub(2)
+        interp = b.ub(2)
+        n = b.ub(4)
+        s0, s1 = [], []
+        for _ in range(n):
+            s0.append([b.u8(), _rgba(b)])
+            s1.append([b.u8(), _rgba(b)])
+        out = {"type": {0x10: "linear", 0x12: "radial", 0x13: "focal"}[kind], "spread": spread,
+               "interpolation": interp, "start": {"matrix": m0, "stops": s0}, "end": {"matrix": m1, "stops": s1}}
+        if kind == 0x13:
+            out["start"]["focal"] = b.s16() / 256
+            out["end"]["focal"] = b.s16() / 256
+        return out
+    if 0x40 <= kind <= 0x43:
+        bid = b.u16()
+        return {"type": "bitmap", "bitmap": bid, "start": {"matrix": read_matrix(b)}, "end": {"matrix": read_matrix(b)}}
+    raise ValueError(f"bilinmeyen morph dolgu türü: {kind:#x}")
+
+
+def read_morph_styles(body, code):
+    """DefineMorphShape (46) / DefineMorphShape2 (84) → {id, bounds: {start, end}, fills, lines}.
+    Çizgi: {start: {width, color}, end: {width, color}}; DefineMorphShape2'de color yerine fill olabilir
+    (dolgulu çizgi) ve uç, birleşim, ölçeklenmeme bayrakları vardır."""
+    mid = struct.unpack_from("<H", body, 0)[0]
+    b = Bits(body, 2)
+    bounds = {"start": _rect(b), "end": _rect(b)}
+    if code == 84:
+        _rect(b)
+        _rect(b)
+        b.u8()
+    b.align()
+    b.pos += 4  # bitiş kenarlarının yeri (offset)
+    count = b.u8()
+    if count == 0xFF:
+        count = b.u16()
+    fills = [read_morph_fill(b) for _ in range(count)]
+    count = b.u8()
+    if count == 0xFF:
+        count = b.u16()
+    lines = []
+    for _ in range(count):
+        w0, w1 = b.u16() / 20, b.u16() / 20
+        line = {"start": {"width": w0}, "end": {"width": w1}}
+        if code == 84:
+            start_cap, join, has_fill = b.ub(2), b.ub(2), b.ub(1)
+            no_h, no_v, hinting = b.ub(1), b.ub(1), b.ub(1)
+            b.ub(5)
+            no_close, end_cap = b.ub(1), b.ub(2)
+            line.update({"start_cap": start_cap, "end_cap": end_cap, "join": join, "no_hscale": bool(no_h),
+                         "no_vscale": bool(no_v), "pixel_hinting": bool(hinting), "no_close": bool(no_close)})
+            if join == 2:
+                line["miter"] = b.u16() / 256
+            if has_fill:
+                line["fill"] = read_morph_fill(b)
+                lines.append(line)
+                continue
+        line["start"]["color"] = _rgba(b)
+        line["end"]["color"] = _rgba(b)
+        lines.append(line)
+    return {"id": mid, "bounds": bounds, "fills": fills, "lines": lines}
+
+
+# --- AVM1 bayt kodundaki dizeler ---------------------------------------------------------------------
+
+PUSH_SIZES = {1: 4, 2: 0, 3: 0, 4: 1, 5: 1, 6: 8, 7: 4, 8: 1, 9: 2}
+
+
+def _cstring(data, p):
+    e = data.index(b"\0", p)
+    return data[p:e].decode("utf-8", "replace"), e + 1
+
+
+def action_strings(data, start=0, end=None):
+    """Eylem kayıtları dizisindeki bütün dize sabitleri: sabit havuzu, Push, GetURL, GotoLabel, SetTarget,
+    işlev ve parametre adları. İşlev gövdeleri, With ve Try blokları kayıt dizisinin içinde sırayla
+    durduğu için doğrusal tarama hepsini görür."""
+    end = len(data) if end is None else end
+    out = []
+    p = start
+    while p < end:
+        code = data[p]
+        p += 1
+        if code < 0x80:
+            continue
+        length = struct.unpack_from("<H", data, p)[0]
+        q, stop = p + 2, p + 2 + length
+        p = stop
+        if code == 0x88:  # ConstantPool
+            count = struct.unpack_from("<H", data, q)[0]
+            q += 2
+            for _ in range(count):
+                text, q = _cstring(data, q)
+                out.append(text)
+        elif code == 0x96:  # Push
+            while q < stop:
+                kind = data[q]
+                q += 1
+                if kind == 0:
+                    text, q = _cstring(data, q)
+                    out.append(text)
+                else:
+                    q += PUSH_SIZES.get(kind, 0)
+        elif code == 0x83:  # GetURL
+            url, q = _cstring(data, q)
+            target, q = _cstring(data, q)
+            out += [url, target]
+        elif code in (0x8C, 0x8B):  # GotoLabel, SetTarget
+            out.append(_cstring(data, q)[0])
+        elif code == 0x9B:  # DefineFunction
+            name, q = _cstring(data, q)
+            out.append(name)
+            count = struct.unpack_from("<H", data, q)[0]
+            q += 2
+            for _ in range(count):
+                param, q = _cstring(data, q)
+                out.append(param)
+        elif code == 0x8E:  # DefineFunction2
+            name, q = _cstring(data, q)
+            out.append(name)
+            count = struct.unpack_from("<H", data, q)[0]
+            q += 2 + 1 + 2
+            for _ in range(count):
+                param, q = _cstring(data, q + 1)
+                out.append(param)
+        elif code == 0x8F and not data[q] & 0x04:  # Try (yakalanan ad bir dizeyse)
+            out.append(_cstring(data, q + 7)[0])
+    return out
+
+
+def clip_action_strings(body, p):
+    """PlaceObject2/3'ün klip eylemleri (onClipEvent) içindeki dizeler; p: klip eylemlerinin başı."""
+    out = []
+    p += 2 + 4  # ayrılmış, bütün olayların bayrakları
+    while True:
+        flags = struct.unpack_from("<I", body, p)[0]
+        if flags == 0:
+            return out
+        size = struct.unpack_from("<I", body, p + 4)[0]
+        start = p + 8
+        if body[p + 2] & 0x02:  # tuşa basma olayı: önce tuş kodu
+            start += 1
+        out += action_strings(body, start, p + 8 + size)
+        p += 8 + size
+
+
+def button_action_strings(body):
+    """DefineButton2'nin koşullu eylemleri içindeki dizeler."""
+    out = []
+    offset = struct.unpack_from("<H", body, 3)[0]
+    if offset == 0:
+        return out
+    p = 3 + offset
+    while True:
+        size = struct.unpack_from("<H", body, p)[0]
+        end = p + size if size else len(body)
+        out += action_strings(body, p + 4, end)
+        if size == 0:
+            return out
+        p = end
+
+
+def movie_strings(path):
+    """SWF'deki bütün AVM1 kodunun dize sabitleri (kare kodu, sınıf kodu, düğme ve klip eylemleri)."""
+    _, _, _, _, data, pos = load(path)
+    out = []
+
+    def walk(d, p):
+        for code, body in tags(d, p):
+            if code == 12:
+                out.extend(action_strings(body))
+            elif code == 59:
+                out.extend(action_strings(body, 2))
+            elif code == 34:
+                out.extend(button_action_strings(body))
+            elif code in (26, 70):
+                at = read_place(body, code).get("_clip_actions_at")
+                if at is not None:
+                    out.extend(clip_action_strings(body, at))
+            elif code == 39:
+                walk(body, 4)
+    walk(data, pos)
+    return out

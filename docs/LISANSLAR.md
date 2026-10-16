@@ -8,7 +8,7 @@ Kod kütüphanelerinin lisansları `cargo deny` ile denetlenir.
 | Feudalism ve Feudalism 2 görselleri: şekiller, animasyonlar, düğmeler, ekranlar | Orijinal oyunların SWF dosyaları (`feudalism-orijinal.swf`, `feudalism-2-orijinal.swf`); SHA-256 özetleri `content/feudalism/<oyun>/library.json` içinde | Hak sahibinin izniyle (oyunun sahibinin 16 Ekim 2026'da bildirdiği). Oyunlarda yazan hak sahibi: Vitaly Zaborov ("Copyright Vitaly Zaborov 2008"). İznin tarihi ve kapsamı: **eklenecek** | `content/feudalism/` |
 | Feudalism ve Feudalism 2'nin Türkçe çevirisi: sabit yazılar, ekran kutuları, koddaki metinler, silah/zırh/birlik adları, "Öldün..." çizimi | Oyunların sahibinin `swf-oyunlar` deposu (`oyunlar/<oyun>/ceviri/`, sürüm `a679d21`, 14 Ekim 2026) | Oyunların sahibinin kendi çevirisi | `content/feudalism/<oyun>/ceviri/` (tablolar değiştirilmeden), çevrilmiş kod `kaynak/feudalism/<oyun>/kod-tr/` |
 | Liberation Sans ve Liberation Serif 2.1.5 (normal, kalın, kalın italik) | [liberationfonts](https://github.com/liberationfonts/liberation-fonts), yapımcı: Red Hat; dosyalar `swf-oyunlar/yazitipleri/` içinden | SIL Open Font License 1.1 | `content/fonts/Liberation*.ttf`, lisans: `content/fonts/OFL-Liberation.txt` |
-| TeX Gyre Pagella (kalın, kalın italik), Bonum (kalın, italik), Chorus, Adventor (kalın) | [GUST](https://www.gust.org.pl/projects/e-foundry/tex-gyre); dosyalar `swf-oyunlar/araclar/yazitipleri/` içinden | GUST Font License (LaTeX Project Public License 1.3c) | `content/fonts/texgyre*.otf`, lisans: `content/fonts/GUST-Font-License.txt` |
+| TeX Gyre 2.501 Pagella (kalın, kalın italik), Bonum (kalın, italik), Chorus, Adventor (kalın) | [GUST](https://www.gust.org.pl/projects/e-foundry/tex-gyre); dosyalar `swf-oyunlar/araclar/yazitipleri/` içinden | GUST Font License (LaTeX Project Public License 1.3c) | `content/fonts/texgyre*.otf`, lisans: `content/fonts/GUST-Font-License.txt` ve `LPPL-1.3c.txt`, ailelerin dosya listesi ve tanıtımı: `MANIFEST-TeX-Gyre-<aile>.txt`, `README-TeX-Gyre-<aile>.txt` |
 | Alegreya (değişken kalınlık) | [google/fonts](https://github.com/google/fonts/tree/main/ofl/alegreya), yapımcı: Huerta Tipográfica | SIL Open Font License 1.1 | `content/fonts/Alegreya-Variable.ttf`, lisans: `content/fonts/OFL-Alegreya.txt` |
 | Alegreya SC (normal, kalın) | [google/fonts](https://github.com/google/fonts/tree/main/ofl/alegreyasc), yapımcı: Huerta Tipográfica | SIL Open Font License 1.1 | `content/fonts/AlegreyaSC-*.ttf`, lisans: `content/fonts/OFL-AlegreyaSC.txt` |
 | Alegreya Sans (normal, kalın) | [google/fonts](https://github.com/google/fonts/tree/main/ofl/alegreyasans), yapımcı: Huerta Tipográfica | SIL Open Font License 1.1 | `content/fonts/AlegreyaSans-*.ttf`, lisans: `content/fonts/OFL-AlegreyaSans.txt` |
@@ -17,7 +17,16 @@ Notlar:
 
 - Feudalism görsellerinden aktarılmayanlar (izin oyunun yazarının kendi eserini kapsar; bunlar ona ait
   değildir):
-  - açılıştaki sponsor logoları (ArcadeTown, Newgrounds);
+  - sponsor logoları (ArcadeTown, Newgrounds): açılış ve yükleme ekranları, ayrıca oyunun kendi
+    ekranlarının köşesindeki ArcadeTown logosu (F1 ana menü; F2 ana menü ve oyun sonu ekranları). Logo
+    oyunun bir ekranında kullanılsa da aktarılmaz; ekran aktarılır, logonun yeri boş kalır (oynatıcı
+    tanımı olmayan karakteri atlar). Listesi ve nedenleri `library.json` → `excluded`;
+  - üçüncü tarafların kodu: sponsor ekranlarının kodu, Adobe `mx.*` sınıfları, MochiAds reklam
+    kütüphanesi, MochiBot izleme kodu. Bunlar `kaynak/` altına da girmez, yalnız yerel arşivde kalır
+    (listesi `kaynak/feudalism/<oyun>/manifest.json` → `code_excluded`). Oyunun kendi kodundaki sponsor
+    sitesine bağlantılar (ör. "More Games" düğmesi) oyunun kodudur ve durur; oyunun kendi yazılarından
+    sponsor adı geçenler `docs/AYIKLAMA_DENETIMI.md`'de listelenir (gösterilip gösterilmeyecekleri
+    sahibinin kararına bağlı);
   - Macromedia/Adobe v2 arayüz bileşenleri (`mx.*`: düğme, kaydırma çubuğu, liste);
   - gömülü yazı tipleri: lisansları yazı tipi yapımcılarındadır. Yazılar açık lisanslı karşılıklarıyla
     çizilir: Arial ve `_sans` → Liberation Sans, Times New Roman ve `_serif` → Liberation Serif, Book Antiqua
@@ -31,7 +40,19 @@ Notlar:
   birlikte dağıtılır.
 - GUST Font License (LPPL 1.3c) yazı tipinin değiştirilmeden, ticari olanlar dahil her yerde
   dağıtılmasına izin verir; değiştirilmiş sürümün başka adla dağıtılmasını ister. Yazı tipleri
-  değiştirilmeden kullanılır; lisans metni yanlarında durur.
+  değiştirilmeden kullanılır; GUST lisansı ve LPPL 1.3c'nin tam metni yanlarında durur.
+- Kısmi dağıtım: TeX Gyre ailelerinin her biri bir "çalışma"dır (dosyaları ailenin MANIFEST'inde
+  listelidir). Projeye her aileden yalnız gereken 1–2 OTF dosyası alındı. LPPL 1.3c madde 6'ya göre
+  çalışmanın yalnız bir kısmının dağıtılması değiştirilmiş sürüm sayılabilir; madde 7'nin koşulları için:
+  dosyaların hiçbiri değiştirilmedi (özetleri aşağıda; dağıtımdakilerle bayt bayt aynı), hangi dosyaların
+  alındığı bu tabloda ve dağıtımın tamamının yeri ailenin README/MANIFEST dosyasında yazılıdır. Bu
+  belgeler yazı tipleriyle birlikte dağıtılır. Hukuki yorum değildir; onay oyunların sahibindedir.
+- TeX Gyre dosyalarının sürümü: 2.501 (8 Mayıs 2018). Bu sürüm, Ubuntu 24.04'ün `fonts-texgyre`
+  (20180621-6) paketindeki dosyalarla bayt bayt aynıdır; MANIFEST ve README dosyaları o paketten
+  (`/usr/share/texmf/doc/fonts/tex-gyre/`), LPPL 1.3c metni `texlive-latex-base-doc` (2023.20240207-1)
+  paketinden (`lppl.txt`) 16 Ekim 2026'da alındı. Kaynakları `araclar/aktar/lisanslar/`; aktarım
+  aracı TeX Gyre yazı tipiyle birlikte `content/fonts/`'a kopyalar. Bonum ve Chorus dosyalarının `fsType`
+  değeri 12'dir (belgeye gömme kısıtı; oyunun yazı tipini kullanmasını etkilemez).
 - Liberation ve TeX Gyre dosyaları 16 Ekim 2026'da `swf-oyunlar` deposundan alındı (aktarım aracı
   kopyalar, denetim kaynağıyla aynı olduğunu sınar); SHA-256 özetleri:
   - `LiberationSans-Regular.ttf`: `4659bc0c58c5028dd488ec928d41d9265db43d9b669fc14ca8b0832daca7b144`
@@ -48,6 +69,15 @@ Notlar:
   - `texgyreadventor-bold.otf`: `e373ae29c808c6d9149e3add46564f9acdb6ebfcd0ee311f6a55560226994720`
   - `OFL-Liberation.txt`: `1e3d9be3b6014bc5269bca754ecf0d32b5704a489c8b63a792629c99acf3fa6a`
   - `GUST-Font-License.txt`: `4668a2a2e325e62c1928942f69e5215bdb70665970802dc2bd8513c9c9d31d4f`
+  - `LPPL-1.3c.txt`: `ca3227f672053cb608959d7e1d476c7a13efea11be3f6e53758a68b650c918e8`
+  - `MANIFEST-TeX-Gyre-Adventor.txt`: `22ed76ceb3942e4e19b7c4ef30673d0fc17d44f9e3174347f4951cd52a4b30ce`
+  - `MANIFEST-TeX-Gyre-Bonum.txt`: `a3f8dc563dddc96267c39e58b35492a2321de179144c36d954b0e5bde8f84365`
+  - `MANIFEST-TeX-Gyre-Chorus.txt`: `f605b07ca7d34a5beff322c4177db1dbad02163b77b24d99c0d33124f102f633`
+  - `MANIFEST-TeX-Gyre-Pagella.txt`: `6ac4bc1448a1d71a3a7ad5fd13566f00855b37ca4db5b20451c88806ac3f5242`
+  - `README-TeX-Gyre-Adventor.txt`: `6282254204678377471c1ff8cb56784a433c00fbe172f86f5379c7c08a1dc211`
+  - `README-TeX-Gyre-Bonum.txt`: `f52b76aff8bdedae3d3685a45b92e4cfbbf7a18e9bc3d8e9d7fea3140112a3d1`
+  - `README-TeX-Gyre-Chorus.txt`: `e36730e8a5ddee2e176ddc5b0d788fc3c1c3017df47c00c87fc50ccd1087b0b6`
+  - `README-TeX-Gyre-Pagella.txt`: `6fc4c72a8754f7e04ffbbec99167a568c0a3d21e231318ed624b58ddfeb1f896`
 - Alegreya yazı tipleri 14 Ekim 2026'da indirildi; SHA-256 özetleri:
   - `Alegreya-Variable.ttf`: `ba5564634b93a8f8ba57b48cd4f1ae7417d2b4656fbac779028679b00de3cf12`
   - `AlegreyaSC-Regular.ttf`: `5c8fba800b848b851e308dfdfdc573b64135e498db41cbd0b6d78ba9d267d9a1`

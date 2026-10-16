@@ -104,12 +104,36 @@ class Files(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             root = self.fake_root(td, "")
             dst = os.path.join(td, "fonts")
+            docs = os.path.join(td, "lisanslar")
+            for name in ("LPPL-1.3c.txt", "MANIFEST-TeX-Gyre-Pagella.txt", "README-TeX-Gyre-Pagella.txt"):
+                write(os.path.join(docs, name), name)
             copied = ceviri.copy_fonts(root, ["yazitipleri/LiberationSans-Bold.ttf",
                                               "araclar/yazitipleri/texgyrepagella-bold.otf",
-                                              "yazitipleri/LiberationSans-Bold.ttf"], dst)
+                                              "yazitipleri/LiberationSans-Bold.ttf"], dst, docs)
             self.assertEqual(copied, ["texgyrepagella-bold.otf", "LiberationSans-Bold.ttf"])
-            self.assertEqual(sorted(os.listdir(dst)), ["GUST-Font-License.txt", "LiberationSans-Bold.ttf",
-                                                       "OFL-Liberation.txt", "texgyrepagella-bold.otf"])
+            self.assertEqual(sorted(os.listdir(dst)), ["GUST-Font-License.txt", "LPPL-1.3c.txt",
+                                                       "LiberationSans-Bold.ttf", "MANIFEST-TeX-Gyre-Pagella.txt",
+                                                       "OFL-Liberation.txt", "README-TeX-Gyre-Pagella.txt",
+                                                       "texgyrepagella-bold.otf"])
+            # Aile belgeleri yoksa aktarım durur
+            with self.assertRaises(FileNotFoundError):
+                ceviri.copy_fonts(root, ["araclar/yazitipleri/texgyrepagella-bold.otf"], dst,
+                                  os.path.join(td, "yok"))
+
+    def test_tex_gyre_fonts_come_with_lppl_and_their_family_manifest_and_readme(self):
+        # LPPL 1.3c (GUST yazı tipi lisansının temeli) ve ailenin MANIFEST/README dosyaları yazı tipiyle
+        # birlikte dağıtılır: hangi dosyaların alındığı ve çalışmanın tamamının nerede olduğu belli olsun
+        with tempfile.TemporaryDirectory() as td:
+            root = self.fake_root(td, "")
+            docs = os.path.join(td, "lisanslar")
+            for name in ("LPPL-1.3c.txt", "MANIFEST-TeX-Gyre-Pagella.txt", "README-TeX-Gyre-Pagella.txt",
+                         "MANIFEST-TeX-Gyre-Bonum.txt"):
+                write(os.path.join(docs, name), name)
+            dst = os.path.join(td, "fonts")
+            ceviri.copy_fonts(root, ["araclar/yazitipleri/texgyrepagella-bold.otf"], dst, docs)
+            self.assertEqual(sorted(os.listdir(dst)), ["GUST-Font-License.txt", "LPPL-1.3c.txt",
+                                                       "MANIFEST-TeX-Gyre-Pagella.txt", "README-TeX-Gyre-Pagella.txt",
+                                                       "texgyrepagella-bold.otf"])
 
     def test_import_translation_copies_tables_unchanged_and_converts_drawn_text(self):
         with tempfile.TemporaryDirectory() as td:

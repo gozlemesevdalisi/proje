@@ -14,6 +14,7 @@ tutmayan bir şey varsa aktarım durur. Ayrıca:
 """
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -116,8 +117,16 @@ def translate_code(swf_root, code_dir, tables_dir, out_dir):
                   for d, _, names in os.walk(out_dir) for n in names)
 
 
-def copy_fonts(swf_root, files, fonts_dir):
-    """Gereken yazı tipi dosyalarını ve lisans metinlerini content/fonts'a kopyalar. Dönen: dosya adları."""
+# TeX Gyre ailelerinin dağıtım belgeleri ve LPPL 1.3c metni (GUST yazı tipi lisansı LPPL'nin bir örneğidir;
+# kaynak: Ubuntu "fonts-texgyre 20180621" = TeX Gyre 2.501 ve "texlive-latex-base-doc", bkz. docs/LISANSLAR.md)
+LICENCE_DOCS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lisanslar")
+TEX_GYRE_FAMILY = re.compile(r"^texgyre([a-z]+)-")
+
+
+def copy_fonts(swf_root, files, fonts_dir, docs_dir=LICENCE_DOCS):
+    """Gereken yazı tipi dosyalarını ve lisans metinlerini content/fonts'a kopyalar. TeX Gyre yazı
+    tiplerinin yanına LPPL 1.3c metni ve ailenin MANIFEST ve README dosyaları da konur (`docs_dir`'den;
+    eksikse hata). Dönen: dosya adları."""
     os.makedirs(fonts_dir, exist_ok=True)
     copied = []
     for rel in sorted(set(files)):
@@ -127,6 +136,11 @@ def copy_fonts(swf_root, files, fonts_dir):
         for prefix, (lic, lic_name) in FONT_LICENSES.items():
             if name.startswith(prefix):
                 shutil.copyfile(os.path.join(swf_root, lic), os.path.join(fonts_dir, lic_name))
+        m = TEX_GYRE_FAMILY.match(name)
+        if m:
+            family = m.group(1).capitalize()
+            for doc in ("LPPL-1.3c.txt", f"MANIFEST-TeX-Gyre-{family}.txt", f"README-TeX-Gyre-{family}.txt"):
+                shutil.copyfile(os.path.join(docs_dir, doc), os.path.join(fonts_dir, doc))
     return copied
 
 

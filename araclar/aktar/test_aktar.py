@@ -3,6 +3,7 @@
 Çalıştırma (depo kökünden):  python3 -m unittest discover -s araclar/aktar -p 'test_*.py'
 """
 import os
+import re
 import struct
 import sys
 import tempfile
@@ -217,6 +218,99 @@ class Reachability(unittest.TestCase):
         self.assertIsNone(m.kind(99))
 
 
+def fake_movie(shapes, sprites, root, exports=None):
+    """Elle kurulmuş küçük film: sprites = {kimlik: [karakterler]}, root = [karakterler]."""
+    m = swf.Movie.__new__(swf.Movie)
+    m.shapes, m.morphs, m.bitmaps, m.texts, m.edit_texts, m.fonts, m.sounds = set(shapes), set(), set(), set(), set(), set(), set()
+    m.sprites = {}
+    for sid, chars in sprites.items():
+        t = swf.Timeline()
+        t.frames = [[{"depth": i + 1, "char": c} for i, c in enumerate(chars)]]
+        m.sprites[sid] = t
+    m.root = swf.Timeline()
+    m.root.frames = [[{"depth": 1, "char": c}] for c in root]
+    m.buttons = {}
+    m.exports = exports or {}
+    return m
+
+
+class Sponsor(unittest.TestCase):
+    def test_sponsor_logo_used_by_game_menu_is_still_excluded(self):
+        # F1'in yapısı: kök kare 1 sponsorun yükleme ekranı (140 → 58 → logo 54 → şekil 52, 53; 58 genel tıklama
+        # alanı 60'ı da kullanır); kök kare 2 oyunun ana menüsü (1494), köşesinde aynı logo 54 ve tıklama alanı 60.
+        m = fake_movie(shapes={52, 53, 60}, sprites={140: [58], 58: [54, 60], 54: [52, 53], 1494: [54, 60]},
+                       root=[140, 1494])
+        old = aktar.EXCLUDED.get("test")
+        aktar.EXCLUDED["test"] = {140: "yükleme ekranı (sponsor)", 54: "ArcadeTown logosu (sponsor)"}
+        try:
+            out = aktar.third_party("test", m)
+        finally:
+            if old is None:
+                del aktar.EXCLUDED["test"]
+        # Logo ve yalnız logonun kullandığı şekiller oyunun menüsünde de olsa dışarıda kalır
+        self.assertEqual(set(out), {140, 58, 54, 52, 53})
+        # Oyunun kendi parçası (menü) ve sponsor dışında da kullanılan tıklama alanı aktarılır
+        self.assertNotIn(1494, out)
+        self.assertNotIn(60, out)
+        self.assertIn("ArcadeTown", out[52])
+        self.assertIn("yükleme ekranı", out[58])
+
+    def test_every_excluded_root_is_reported_with_its_own_reason(self):
+        m = fake_movie(shapes={1, 2}, sprites={10: [1], 20: [2]}, root=[10, 20])
+        aktar.EXCLUDED["test"] = {10: "a", 20: "b"}
+        try:
+            out = aktar.third_party("test", m)
+        finally:
+            del aktar.EXCLUDED["test"]
+        self.assertEqual(out, {10: "sponsor: a", 1: "sponsor: a", 20: "sponsor: b", 2: "sponsor: b"})
+
+
+class ThirdPartyCode(unittest.TestCase):
+    """Dışarıda bırakılan karakterlere bağlı kod, Adobe mx sınıfları ve reklam/izleme kütüphaneleri
+    kaynak/ altına girmez (yalnız yerel arşivde kalır); oyunun kendi kodu girer."""
+    TP = {140: "sponsor: yükleme ekranı", 1962: "sponsor: logo", 205: "Macromedia/Adobe arayüz bileşeni",
+          300: "MochiAds reklam kütüphanesi"}
+    EXPORTS = {"__Packages.mx.core.View": 205, "Button": 205, "__Packages.MochiAd": 300,
+               "__Packages.WorldMap": 400, "Human": 547}
+
+    def reason(self, rel, game="f2"):
+        return aktar.third_party_code(game, rel, self.TP, self.EXPORTS)
+
+    def test_code_of_excluded_characters_and_classes_is_left_out(self):
+        self.assertIn("sponsor", self.reason("DefineSprite_140/frame_1/DoAction.as"))
+        self.assertIn("logo", self.reason("frame_115/PlaceObject2_1962_12/CLIPACTIONRECORD on(release).as"))
+        self.assertIn("logo", self.reason("DefineSprite_2342/frame_1/PlaceObject2_1962_480/CLIPACTIONRECORD on(release).as"))
+        # FFDec, karakterin dışa aktarılan adını klasör adına ekler: PlaceObject2_<karakter>_<ad>_<derinlik>
+        self.assertIn("Adobe", self.reason("DefineSprite_190/frame_2/PlaceObject2_205_HScrollBar_1/CLIPACTIONRECORD on(load).as"))
+        self.assertIn("Adobe", self.reason("__Packages/mx/core/View.as"))
+        self.assertIn("Adobe", self.reason("Button.as"))
+        self.assertIn("Mochi", self.reason("__Packages/MochiAd.as"))
+        self.assertIn("MochiBot", self.reason("frame_1/DoAction_2.as", "f1"))
+
+    def test_unnamed_class_code_is_matched_to_its_sprite_by_order(self):
+        # FFDec, dışa aktarılmamış sprite'ın sınıf kodunu (DoInitAction) kimliksiz yazar: DoInitAction.as,
+        # DoInitAction_2.as ... SWF'deki sırayla. F2'de ilki Adobe FocusManager'ın kodu (sprite 71).
+        tp = {**self.TP, 71: "Macromedia/Adobe arayüz bileşeni"}
+        self.assertIn("Adobe", aktar.third_party_code("f2", "DoInitAction.as", tp, self.EXPORTS, [71, 600]))
+        self.assertIsNone(aktar.third_party_code("f2", "DoInitAction_2.as", tp, self.EXPORTS, [71, 600]))
+
+    def test_the_games_own_code_stays(self):
+        for rel in ("frame_1/DoAction.as", "__Packages/WorldMap.as", "Human.as",
+                    "DefineSprite_547_Human/frame_3/DoAction.as", "DefineButton2_1765/BUTTONCONDACTION on(release).as",
+                    "DefineSprite_1494/frame_6/PlaceObject2_1485_337/CLIPACTIONRECORD onClipEvent(keyDown).as"):
+            self.assertIsNone(self.reason(rel), rel)
+
+    def test_prune_removes_files_and_empty_folders(self):
+        with tempfile.TemporaryDirectory() as d:
+            for rel in ("frame_1/DoAction.as", "__Packages/mx/core/View.as", "DefineSprite_140/frame_1/DoAction.as"):
+                os.makedirs(os.path.dirname(os.path.join(d, rel)), exist_ok=True)
+                with open(os.path.join(d, rel), "w", encoding="utf-8") as f:
+                    f.write("x")
+            removed = aktar.prune_code(d, lambda rel: self.reason(rel))
+            self.assertEqual(sorted(removed), ["DefineSprite_140/frame_1/DoAction.as", "__Packages/mx/core/View.as"])
+            self.assertEqual(sorted(os.listdir(d)), ["frame_1"])
+
+
 class Actions(unittest.TestCase):
     def test_simple_commands(self):
         src = 'stop();\nthis._parent.directHit();\ngotoAndPlay(2);\ngotoAndStop("sword");\nplay();\n'
@@ -299,6 +393,93 @@ class Morphs(unittest.TestCase):
             aktar.transform_matrix("wobble", "1")
 
 
+class MorphStylesFromSwf(unittest.TestCase):
+    """Morph uçlarının renkleri ve degrade matrisleri SWF'deki değerlerden yazılır (FFDec'in morph SVG'sindeki
+    canlandırma değerlerinden değil): FFDec 180° dönmüş degrade matrisini dönmesiz ayrıştırır ve bitiş
+    renklerinin mavi kanalına 1 ekler."""
+    # F2 morph 3058'in ilk dolgusu ve çizgisi, FFDec'in yazdığı biçimde (kısaltılmış)
+    SVG = ('<svg xmlns="http://www.w3.org/2000/svg"><g transform="matrix(1.0, 0.0, 0.0, 1.0, 280.0, 280.0)">'
+           '<path d="M0 0" fill="url(#gradient0)" stroke="none">'
+           '<animate attributeName="d" values="M0 0 L1 1;M0 0 L2 2"/></path>'
+           '<path d="M0 0" fill="#990000" stroke="none">'
+           '<animate attributeName="fill" values="#990000;#990001"/>'
+           '<animate attributeName="fill-opacity" values="1.0;1.0"/></path>'
+           '<path d="M0 0" fill="none" stroke="#000000" stroke-opacity="0.0" stroke-width="0.0">'
+           '<animate attributeName="stroke" values="#000000;#000001"/>'
+           '<animate attributeName="stroke-width" values="0.0;0.0"/></path></g><defs>'
+           '<linearGradient gradientTransform="matrix(-0.1379, 0.0, 0.0, -0.0883, -167.3, 0.15)" id="gradient0" '
+           'x1="-819.2" x2="819.2">'
+           '<animateTransform additive="replace" attributeName="gradientTransform" from="1" to="1" type="scale"/>'
+           '<animateTransform additive="sum" attributeName="gradientTransform" from="-167.3 0.15" to="-167.3 0.15" '
+           'type="translate"/>'
+           '<animateTransform additive="sum" attributeName="gradientTransform" from="0.0" to="0.0" type="rotate"/>'
+           '<animateTransform additive="sum" attributeName="gradientTransform" from="0.1379 0.0883" to="0.1379 0.0883" '
+           'type="scale"/>'
+           '<animateTransform additive="sum" attributeName="gradientTransform" from="0.0" to="0.0" type="skewX"/>'
+           '<stop offset="0.0" stop-color="#ffcc00" stop-opacity="0.5019608">'
+           '<animate attributeName="offset" values="0.0;0.0"/>'
+           '<animate attributeName="stop-color" values="#ffcc00;#ffcc01"/>'
+           '<animate attributeName="stop-opacity" values="0.5019608;1.0"/></stop>'
+           '<stop offset="1.0" stop-color="#feeba3" stop-opacity="0.0">'
+           '<animate attributeName="offset" values="1.0;1.0"/>'
+           '<animate attributeName="stop-color" values="#feeba3;#feeba4"/>'
+           '<animate attributeName="stop-opacity" values="0.0;0.3019608"/></stop>'
+           '</linearGradient></defs></svg>')
+    M = [-0.137908935546875, 0.0, 0.0, -0.088348388671875, -167.3, 0.15]
+    STYLES = {"fills": [
+        {"type": "linear", "spread": 0, "interpolation": 0,
+         "start": {"matrix": M, "stops": [[0, [255, 204, 0, 128]], [255, [254, 235, 163, 0]]]},
+         "end": {"matrix": M, "stops": [[0, [255, 204, 0, 255]], [255, [254, 235, 163, 77]]]}},
+        {"type": "solid", "start": [153, 0, 0, 255], "end": [153, 0, 0, 255]}],
+        "lines": [{"start": {"width": 0.0, "color": [0, 0, 0, 0]}, "end": {"width": 0.0, "color": [0, 0, 0, 0]}}]}
+
+    def ends(self):
+        return aktar.apply_animates(self.SVG, 0, self.STYLES), aktar.apply_animates(self.SVG, 1, self.STYLES)
+
+    def test_gradient_matrix_keeps_its_rotation_at_both_ends(self):
+        for svg in self.ends():
+            m = re.search(r'gradientTransform="matrix\(([^)]*)\)"', svg).group(1)
+            self.assertEqual([float(v) for v in m.split(",")], [round(v, 6) for v in self.M])
+
+    def test_end_colours_are_the_swf_colours(self):
+        start, end = self.ends()
+        self.assertIn('fill="#990000"', end)
+        self.assertNotIn("#990001", end)
+        self.assertIn('stroke="#000000"', end)
+        self.assertNotIn("#ffcc01", end)
+        self.assertNotIn("#feeba4", end)
+        self.assertIn('stop-color="#feeba3" stop-opacity="0.3019608"', end)
+        self.assertIn('stop-color="#ffcc00" stop-opacity="0.5019608"', start)
+
+    def test_geometry_still_comes_from_the_animation(self):
+        start, end = self.ends()
+        self.assertIn('d="M0 0 L1 1"', start)
+        self.assertIn('d="M0 0 L2 2"', end)
+
+    def test_unmatched_style_is_an_error(self):
+        styles = {"fills": self.STYLES["fills"][1:], "lines": self.STYLES["lines"]}
+        with self.assertRaises(ValueError):
+            aktar.apply_animates(self.SVG, 1, styles)
+
+    def test_same_start_is_told_apart_by_ffdecs_end_values(self):
+        # F2 morph 993: başlangıcı aynı iki dolgu, biri yarı saydamlığa (128) biri 26'ya gider. FFDec'in bitiş
+        # saydamlığı doğrudur, bitiş renginin mavisi 1 fazladır; aday bunlarla seçilir.
+        svg = self.SVG.replace('attributeName="fill-opacity" values="1.0;1.0"',
+                               'attributeName="fill-opacity" values="1.0;0.1019608"')
+        faded = {"type": "solid", "start": [153, 0, 0, 255], "end": [153, 0, 0, 26]}
+        styles = {"fills": self.STYLES["fills"] + [faded], "lines": self.STYLES["lines"]}
+        end = aktar.apply_animates(svg, 1, styles)
+        self.assertRegex(end, r'fill="#990000"[^>]*fill-opacity="0.1019608"')
+        self.assertRegex(aktar.apply_animates(self.SVG, 1, styles), r'fill="#990000"[^>]*fill-opacity="1.0"')
+
+    def test_ambiguous_style_is_an_error(self):
+        # Başlangıcı aynı, bitişleri FFDec'in değeriyle ayırt edilemeyecek kadar yakın iki düz dolgu
+        other = {"type": "solid", "start": [153, 0, 0, 255], "end": [153, 0, 1, 255]}
+        styles = {"fills": self.STYLES["fills"] + [other], "lines": self.STYLES["lines"]}
+        with self.assertRaises(ValueError):
+            aktar.apply_animates(self.SVG, 1, styles)
+
+
 class TextRecords(unittest.TestCase):
     def test_decode_records_lines_and_font_carry_over(self):
         records = [{"font": 1, "y": 10, "glyphs": [[0, 5], [1, 5]]}, {"glyphs": [[2, 5]]}, {"y": 30, "glyphs": [[1, 5]]}]
@@ -337,7 +518,7 @@ class Inventory(unittest.TestCase):
         self.assertEqual(reason({"text": "<p></p>"}, set(), code), "boş")
         self.assertEqual(reason({"text": "2222/2222"}, set(), code), "yalnız sayı ve işaret (oyun doldurur)")
         self.assertEqual(reason({"text": "The game is playable at ArcadeTown"}, set(), code),
-                         "sponsor ya da site metni (oyunumuzda gösterilmez)")
+                         envanter.SPONSOR_REASON)
         self.assertEqual(reason({"text": "SP cost: 100"}, {"info_txt"}, code),
                          "tasarım örneği; oyun kodla doldurur (Türkçesi kod çevirisinde)")
         self.assertEqual(reason({"text": "Damage: 5", "variable": "dmg"}, set(), code),
@@ -349,8 +530,13 @@ class Inventory(unittest.TestCase):
         self.assertEqual(reason({"text": "?"}, set(), code), "yalnız sayı ve işaret (oyun doldurur)")
         # Sponsor ekranındaki her kutu, kendisi sponsor adı geçirmese de sponsor metnidir
         self.assertEqual(reason({"text": "it is absolutely free and the game is the same."}, set(), code, sponsor=True),
-                         "sponsor ya da site metni (oyunumuzda gösterilmez)")
+                         envanter.SPONSOR_REASON)
         self.assertEqual(reason({"text": "Horseman Twohanded Sword"}, {"other_txt"}, code), "ELLE BAKILMALI")
+        # Latin dışı harfler de metindir (F2 kutu 3127, Rusça "bu oyun çalındı"): "yalnız sayı ve işaret" değil
+        self.assertEqual(reason({"text": "ЭТУ ИГРУ СПЕРЛИ!!!"}, set(), code), "ELLE BAKILMALI")
+        self.assertEqual(reason({"text": "ЭТУ ИГРУ СПЕРЛИ!!!"}, set(), code, sponsor=True), envanter.SPONSOR_REASON)
+        # Sponsor ekranının gösterilip gösterilmeyeceği bir varsayım değil, sahibinin kararıdır
+        self.assertIn("sahibinin kararı", envanter.SPONSOR_REASON)
 
     def test_sponsor_sprites_are_those_holding_a_sponsor_text(self):
         # Sprite'ın tamamı bir ekrandır; kök filmde her kare ayrı bir ekrandır
@@ -390,6 +576,86 @@ class Filters(unittest.TestCase):
               "ratio": 0.123456}
         self.assertEqual(aktar.clean_op(op), {"depth": 1, "ratio": 0.12346})
 
+
+    def test_clean_op_keeps_16_16_values_recoverable(self):
+        # 16.16 sabit noktalı ölçek: 6 ondalıkla yazılır; SWF'deki tamsayı geri kurulabilir
+        raw = 9038 / 65536
+        out = aktar.clean_op({"depth": 1, "matrix": [raw, 0.0, 0.0, raw, 1.0, 2.0],
+                              "cxform": [[3 / 256, 1.0, 1.0, 1.0], [0.0, 0.0, 0.0, 0.0]]})
+        self.assertEqual(round(out["matrix"][0] * 65536), 9038)
+        self.assertAlmostEqual(out["matrix"][0], raw, places=6)
+        self.assertEqual(round(out["cxform"][0][0] * 256), 3)
+
+
+class FilterRecords(unittest.TestCase):
+    """Süzgeçler bütün alanlarıyla okunur (geçiş sayısı ve bileşim dahil); uzunlukları doğru sayılır ki
+    ardından gelen karışım kipi doğru okunsun."""
+
+    def place3(self, filters):
+        return bytes([0x02, 0x01 | 0x02]) + struct.pack("<HH", 1, 5) + bytes([len(filters)]) + b"".join(filters) \
+            + bytes([3])
+
+    def test_bevel_is_27_bytes_and_blend_after_it_is_read(self):
+        bevel = bytes([3]) + bytes([0, 0, 0, 255]) + bytes([255, 255, 255, 255]) \
+            + struct.pack("<iiiih", 2 * 65536, 3 * 65536, 65536, 4 * 65536, 256) + bytes([0x80 | 0x10 | 2])
+        self.assertEqual(len(bevel), 1 + 27)
+        op = swf.read_place(self.place3([bevel]), 70)
+        self.assertEqual(op["blend"], "multiply")
+        self.assertEqual(op["filters"], [{"type": "bevel", "shadow": [0, 0, 0, 255], "highlight": [255, 255, 255, 255],
+                                          "blur": [2.0, 3.0], "angle": 1.0, "distance": 4.0, "strength": 1.0,
+                                          "inner": True, "knockout": False, "composite": False, "on_top": True,
+                                          "passes": 2}])
+
+    def test_drop_shadow_glow_and_blur_keep_flags_and_passes(self):
+        shadow = bytes([0]) + bytes([1, 2, 3, 4]) + struct.pack("<iiiih", 65536, 65536, 0, 2 * 65536, 512) \
+            + bytes([0x40 | 0x20 | 3])
+        glow = bytes([2]) + bytes([255, 0, 0, 255]) + struct.pack("<iih", 65536, 65536, 256) + bytes([0x80 | 1])
+        blur = bytes([1]) + struct.pack("<ii", 5 * 65536, 6 * 65536) + bytes([2 << 3])
+        f = swf.read_place(self.place3([shadow, glow, blur]), 70)["filters"]
+        self.assertEqual(f[0], {"type": "drop_shadow", "color": [1, 2, 3, 4], "blur": [1.0, 1.0], "angle": 0.0,
+                                "distance": 2.0, "strength": 2.0, "inner": False, "knockout": True,
+                                "composite": True, "passes": 3})
+        self.assertEqual(f[1], {"type": "glow", "color": [255, 0, 0, 255], "blur": [1.0, 1.0], "strength": 1.0,
+                                "inner": True, "knockout": False, "composite": False, "passes": 1})
+        self.assertEqual(f[2], {"type": "blur", "blur": [5.0, 6.0], "passes": 2})
+
+    def test_place_object3_visibility_and_background(self):
+        body = bytes([0x02, 0x20 | 0x40]) + struct.pack("<HH", 1, 5) + bytes([0]) + bytes([10, 20, 30, 255])
+        op = swf.read_place(body, 70)
+        self.assertEqual(op["visible"], False)
+        self.assertEqual(op["background"], [10, 20, 30, 255])
+
+    def test_duplicate_frame_label_is_an_error(self):
+        t = swf.Timeline()
+        t.add_tag(43, b"walk\0")
+        t.add_tag(1, b"")
+        with self.assertRaises(ValueError):
+            t.add_tag(43, b"walk\0")
+
+
+class ActionStrings(unittest.TestCase):
+    """AVM1 bayt kodundaki dizeler (kod çevirisinin Türkçe SWF'yle karşılaştırılması için)."""
+
+    def test_constant_pool_push_and_function_names(self):
+        pool = struct.pack("<H", 2) + "Kılıç\0".encode() + b"hp\0"
+        push = b"\x00" + "Öldün...\0".encode() + b"\x07" + struct.pack("<i", 5) + b"\x08\x01"
+        fn = b"heal\0" + struct.pack("<H", 1) + b"amount\0" + struct.pack("<H", 0)
+        data = (b"\x88" + struct.pack("<H", len(pool)) + pool + b"\x96" + struct.pack("<H", len(push)) + push
+                + b"\x9b" + struct.pack("<H", len(fn)) + fn + b"\x07\x00")
+        self.assertEqual(swf.action_strings(data), ["Kılıç", "hp", "Öldün...", "heal", "amount"])
+
+    def test_button_and_clip_actions(self):
+        acts = b"\x96" + struct.pack("<H", 5) + b"\x00Yes\0" + b"\x00"
+        # Düğme: kimlik, bayrak, eylem kaydırması (kayıtların sonuna), kayıt sonu, bir koşullu eylem (son)
+        button = struct.pack("<HBH", 1, 0, 3) + b"\x00" + struct.pack("<HH", 0, 8) + acts
+        self.assertEqual(swf.button_action_strings(button), ["Yes"])
+        clip = struct.pack("<HI", 0, 1) + struct.pack("<II", 1, len(acts)) + acts + struct.pack("<I", 0)
+        place = bytes([0x02 | 0x80]) + struct.pack("<HH", 1, 9) + clip
+        op = swf.read_place(place, 26)
+        self.assertEqual(swf.clip_action_strings(place, op["_clip_actions_at"]), ["Yes"])
+        t = swf.Timeline()
+        t.add_tag(26, place)
+        self.assertNotIn("_clip_actions_at", t.frames[0][0])
 
 if __name__ == "__main__":
     unittest.main()

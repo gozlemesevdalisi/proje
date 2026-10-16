@@ -10,8 +10,8 @@ Sahne 800×600 piksel, saniyede 30 kare, arka plan `#35567B`. Kaynak: `feudalism
 
 | İçerik | Sayı | Oyuna aktarılan | Yalnız yerel arşivde (neden) |
 |---|---|---|---|
-| Şekil (vektör çizim) | 1234 | 1159 vektör + 19 resim dolgulu | 56 (sponsor ya da Macromedia) |
-| Sprite (hareketli sembol) | 246 | 223 | 23 |
+| Şekil (vektör çizim) | 1234 | 1157 vektör + 19 resim dolgulu | 58 (sponsor ya da Macromedia) |
+| Sprite (hareketli sembol) | 246 | 222 | 24 |
 | Düğme | 175 | 174 | 1 |
 | Morph (biçim değiştiren şekil) | 16 | 11 (başlangıç ve bitiş) | 5 |
 | Ekran (kök film karesi) | 92 | 92 | – |
@@ -22,9 +22,10 @@ Sahne 800×600 piksel, saniyede 30 kare, arka plan `#35567B`. Kaynak: `feudalism
 | Yazı alanı | 251 | 250 (bütün özellikleriyle) | 1 |
 | Yazı tipi | 15 | harf kodları; yerine açık lisanslı karşılığı | 15 (lisans yazı tipi yapımcısında) |
 | Türkçe çeviri | 122 sabit yazı, 143 kutu, 56 kod dosyası | `content/feudalism/f1/ceviri/` | – |
-| Oyun kodu | 29 sınıf, 622 dosya | `kaynak/feudalism/f1/kod` (oyuna gömülmez) | – |
+| Oyun kodu | 29 sınıf, 612 dosya | `kaynak/feudalism/f1/kod` (oyuna gömülmez) | – |
 | Macromedia arayüz bileşeni | 0 | – | – |
-| Sponsor parçası | 1 sembol | – | hepsi (sponsorun) |
+| Sponsor parçası | 2 kök sembol, altlarıyla 89 karakter | – | hepsi (sponsorun; oyunun ekranlarında kullanılanlar dahil) |
+| Üçüncü taraf kodu | 10 dosya | – | hepsi (sponsor, Adobe, MochiAds, MochiBot; listesi manifest.json → code_excluded) |
 
 Eksik kalan karakter: 0. Tanınmayan etiket türü: 0. Her karakterin ve her etiket türünün nereye gittiği: `kaynak/feudalism/f1/manifest.json`.
 
@@ -126,7 +127,13 @@ Kaynak: `swf-oyunlar/oyunlar/feudalism/ceviri` (oyunların sahibinin çevirisi).
 | Ekran kutusu | 143 | 250 |
 | Kod dosyası (ekranda görünen metinler) | 56 | – |
 | Silah, zırh ve birlik adı | 280 | – |
-| Resim olarak çizilmiş yazı | 1 | 1 |
+| Resim olarak çizilmiş yazı | 1 | – (kendiliğinden bulunamaz; bilinenler aşağıda) |
+
+Resim olarak çizilmiş yazılar, ekranlara bakılarak bulunanlar (başkaları da olabilir):
+
+- şekil 2019: "Öldün..." → çevrildi (`ceviri/sekiller/2019.svg`)
+- şekil 995: "The Age of..." → ana menünün alt başlığı; çeviri tablosunda yok, sahibine sorulacak
+- şekil 1019: "FEUDALISM" → oyunun adı; özel ad, çevrilmez
 
 Çevrilmeyen ekran kutuları ve nedeni:
 
@@ -147,10 +154,10 @@ Sahne 800×600 piksel, saniyede 30 kare, arka plan `#35567B`. Kaynak: `feudalism
 
 | İçerik | Sayı | Oyuna aktarılan | Yalnız yerel arşivde (neden) |
 |---|---|---|---|
-| Şekil (vektör çizim) | 2184 | 2116 vektör + 31 resim dolgulu | 37 (sponsor ya da Macromedia) |
-| Sprite (hareketli sembol) | 441 | 352 | 89 |
+| Şekil (vektör çizim) | 2184 | 2098 vektör + 31 resim dolgulu | 55 (sponsor ya da Macromedia) |
+| Sprite (hareketli sembol) | 441 | 306 | 135 |
 | Düğme | 179 | 178 | 1 |
-| Morph (biçim değiştiren şekil) | 25 | 25 (başlangıç ve bitiş) | 0 |
+| Morph (biçim değiştiren şekil) | 25 | 24 (başlangıç ve bitiş) | 1 |
 | Ekran (kök film karesi) | 116 | 116 | – |
 | Resim (bit eşlem) | 24 | 24 | – |
 | Ses efekti | 16 | 16 | – |
@@ -159,9 +166,10 @@ Sahne 800×600 piksel, saniyede 30 kare, arka plan `#35567B`. Kaynak: `feudalism
 | Yazı alanı | 194 | 193 (bütün özellikleriyle) | 1 |
 | Yazı tipi | 16 | harf kodları; yerine açık lisanslı karşılığı | 16 (lisans yazı tipi yapımcısında) |
 | Türkçe çeviri | 104 sabit yazı, 116 kutu, 62 kod dosyası | `content/feudalism/f2/ceviri/` | – |
-| Oyun kodu | 43 sınıf, 1126 dosya | `kaynak/feudalism/f2/kod` (oyuna gömülmez) | – |
+| Oyun kodu | 43 sınıf, 998 dosya | `kaynak/feudalism/f2/kod` (oyuna gömülmez) | – |
 | Macromedia arayüz bileşeni | 85 | – | hepsi (Adobe'nin; oyunda kullanılmıyor) |
-| Sponsor parçası | 0 sembol | – | – |
+| Sponsor parçası | 2 kök sembol, altlarıyla 21 karakter | – | hepsi (sponsorun; oyunun ekranlarında kullanılanlar dahil) |
+| Üçüncü taraf kodu | 128 dosya | – | hepsi (sponsor, Adobe, MochiAds, MochiBot; listesi manifest.json → code_excluded) |
 
 Eksik kalan karakter: 0. Tanınmayan etiket türü: 0. Her karakterin ve her etiket türünün nereye gittiği: `kaynak/feudalism/f2/manifest.json`.
 
@@ -270,18 +278,23 @@ Kaynak: `swf-oyunlar/oyunlar/feudalism-2/ceviri` (oyunların sahibinin çevirisi
 | Ekran kutusu | 116 | 193 |
 | Kod dosyası (ekranda görünen metinler) | 62 | – |
 | Silah, zırh ve birlik adı | 543 | – |
-| Resim olarak çizilmiş yazı | 1 | 1 |
+| Resim olarak çizilmiş yazı | 1 | – (kendiliğinden bulunamaz; bilinenler aşağıda) |
+
+Resim olarak çizilmiş yazılar, ekranlara bakılarak bulunanlar (başkaları da olabilir):
+
+- şekil 3094: "Öldün..." → çevrildi (`ceviri/sekiller/3094.svg`)
+- birkaç parça: "Feudalism II" → ana menüdeki oyunun adı; özel ad, çevrilmez
 
 Çevrilmeyen ekran kutuları ve nedeni:
 
 | Neden | Sayı | Kutular |
 |---|---|---|
 | boş | 15 | 2025, 2026, 2296, 2574, 2598, 2606, 2607, 2619, 2620, 2633, 2795, 2810, 2813, 2821, 3134 |
-| sponsor ya da site metni (oyunumuzda gösterilmez) | 6 | 3125 (If you see this message on any), 3126 (This version were probably  / ), 3128 (it is absolutely free and the ), 3129 (And the last thing. If somehow), 3130 (http://www.arcadetown.com/free), 3132 (The game is playable at Arcade) |
+| sponsor ya da site metni (gösterilip gösterilmeyeceği oyunların sahibinin kararı; henüz sorulmadı) | 7 | 3125 (If you see this message on any), 3126 (This version were probably  / ), 3127 (ЭТУ ИГРУ СПЕРЛИ!!!), 3128 (it is absolutely free and the ), 3129 (And the last thing. If somehow), 3130 (http://www.arcadetown.com/free), 3132 (The game is playable at Arcade) |
 | sürüm numarası (çevrilmez) | 1 | 1950 (v1.02) |
 | tasarım örneği; oyun kodla doldurur (Türkçesi kod çevirisinde) | 10 | 223 (Character throws his dagger at), 225 (Horsemen Defense Mastery), 242 (SP cost: 100), 251 (Horseman Twohanded Sword), 252 (Two Handed Sword), 253 (Damage: 50-93Critical rate: 10), 257 (Legionary), 258 (STR: 32DEX: 10CON: 19SPR: 10Pr), 338 (HP: 9999 SP: 9999Defense: 500 ), 340 (Strength is a very very very i) |
 | tek kelime: özel ad ya da kodda anahtar (çevrilmez) | 3 | 1703 (RIP), 2376 (T i f l i s), 2914 (Katar) |
-| yalnız sayı ve işaret (oyun doldurur) | 42 | 265 (99), 351 (2222/2222), 462 (9999/9999), 475 (9999/9999), 479 (999), 480 (999), 490 (1), 492 (2), 493 (3), 494 (4), 495 (5), 496 (6), 1458 (3000), 2018 (?), 2021 (?), 2269 (120/120), 2432 (999), 2585 (10), 2610 (999), 2611 (999), 2635 (999), 2861 (999), 2862 (999), 2863 (999), 2864 (999), 2865 (999), 2866 (999), 2867 (999), 2868 (999), 2869 (999), 2870 (999), 2871 (999), 2872 (999), 2873 (999), 2874 (999), 2875 (999), 2891 (999), 2909 (50), 2915 (999), 2918 (?), 3112 (1500/2000), 3127 (ЭТУ ИГРУ СПЕРЛИ!!!) |
+| yalnız sayı ve işaret (oyun doldurur) | 41 | 265 (99), 351 (2222/2222), 462 (9999/9999), 475 (9999/9999), 479 (999), 480 (999), 490 (1), 492 (2), 493 (3), 494 (4), 495 (5), 496 (6), 1458 (3000), 2018 (?), 2021 (?), 2269 (120/120), 2432 (999), 2585 (10), 2610 (999), 2611 (999), 2635 (999), 2861 (999), 2862 (999), 2863 (999), 2864 (999), 2865 (999), 2866 (999), 2867 (999), 2868 (999), 2869 (999), 2870 (999), 2871 (999), 2872 (999), 2873 (999), 2874 (999), 2875 (999), 2891 (999), 2909 (50), 2915 (999), 2918 (?), 3112 (1500/2000) |
 
 ### Oyun kodunun sınıfları
 
