@@ -39,6 +39,7 @@ Hepsi depo kökünde çalıştırılır.
 | Yan yana levha (aynı boy, %5 cetvel) | `python3 araclar/olcum/olcum.py levha cikti.png f1/1112 f1/1110 cizim.svg:iskelet.json` |
 | Feudalism görsellerini aktar | `python3 araclar/aktar/aktar.py` → `content/feudalism/` (önce `araclar/olcum/cikar.sh`) |
 | Aktarım aracının testleri   | `python3 -m unittest discover -s araclar/aktar -p 'test_*.py'` |
+| Oyunların içerik dökümü     | `python3 araclar/aktar/envanter.py` → `docs/FEUDALISM_ICERIK.md` |
 | Ölçüm aracının testleri     | `python3 -m unittest discover -s araclar/olcum -p 'test_*.py'` |
 | Sanat kurallarını denetle   | `cargo test -p game --test art_rules`                     |
 

@@ -328,3 +328,148 @@ class Movie:
             seen.add(cid)
             stack.extend(self.children(cid) - seen)
         return seen
+
+
+# --- Döküm için ayrıntılar (ses, yazı tipi, yazı, resim) ---------------------------------------
+
+SOUND_FORMATS = {0: "sıkıştırmasız", 1: "ADPCM", 2: "MP3", 3: "sıkıştırmasız", 4: "Nellymoser", 5: "Nellymoser",
+                 6: "Nellymoser", 11: "Speex"}
+SOUND_RATES = {0: 5512.5, 1: 11025, 2: 22050, 3: 44100}
+
+
+def read_sound(body):
+    """DefineSound → {id, format, rate, stereo, seconds, bytes}."""
+    sid = struct.unpack_from("<H", body, 0)[0]
+    f = body[2]
+    rate = SOUND_RATES[(f >> 2) & 3]
+    samples = struct.unpack_from("<I", body, 3)[0]
+    return {"id": sid, "format": SOUND_FORMATS.get(f >> 4, str(f >> 4)), "rate": rate, "stereo": bool(f & 1),
+            "seconds": samples / rate, "bytes": len(body) - 7}
+
+
+def read_font(body):
+    """DefineFont2/3 → (kimlik, ad, kalın, italik, glif kodları)."""
+    fid = struct.unpack_from("<H", body, 0)[0]
+    flags = body[2]
+    nlen = body[4]
+    name = body[5:5 + nlen].decode("latin1").rstrip("\0")
+    p = 5 + nlen
+    count = struct.unpack_from("<H", body, p)[0]
+    p += 2
+    codes = []
+    if count:
+        wide_offsets = bool(flags & 0x08)
+        table = p
+        size = 4 if wide_offsets else 2
+        fmt = "<I" if wide_offsets else "<H"
+        code_offset = struct.unpack_from(fmt, body, table + count * size)[0]
+        q = table + code_offset
+        if flags & 0x04:
+            codes = list(struct.unpack_from(f"<{count}H", body, q))
+        else:
+            codes = list(body[q:q + count])
+    return fid, name, bool(flags & 1), bool(flags & 2), codes
+
+
+def read_text(body, rgba):
+    """DefineText(2) → (kimlik, [(yazı tipi, satır yazısı glif sırasıyla)]). Glif sıraları yazı
+    tipinin kod tablosuyla harfe çevrilir (bkz. decode_text)."""
+    tid = struct.unpack_from("<H", body, 0)[0]
+    b = Bits(body, 2)
+    n = b.ub(5)
+    for _ in range(4):
+        b.sb(n)
+    b.align()
+    read_matrix(b)
+    glyph_bits = b.u8()
+    advance_bits = b.u8()
+    lines = []
+    font = None
+    while True:
+        flags = b.u8()
+        if flags == 0:
+            break
+        if flags & 0x08:
+            font = b.u16()
+        if flags & 0x04:
+            for _ in range(4 if rgba else 3):
+                b.u8()
+        new_line = False
+        if flags & 0x01:
+            b.s16()
+        if flags & 0x02:
+            b.s16()
+            new_line = True
+        if flags & 0x08:
+            b.u16()
+        count = b.u8()
+        glyphs = []
+        for _ in range(count):
+            glyphs.append(b.ub(glyph_bits))
+            b.sb(advance_bits)
+        b.align()
+        if new_line or not lines:
+            lines.append((font, glyphs))
+        else:
+            lines[-1] = (lines[-1][0], lines[-1][1] + glyphs)
+    return tid, lines
+
+
+def decode_text(lines, fonts):
+    """Satırları yazıya çevirir; yazı tipinde kodu olmayan glif '?' olur."""
+    out = []
+    for font, glyphs in lines:
+        codes = fonts.get(font, [])
+        out.append("".join(chr(codes[g]) if g < len(codes) else "?" for g in glyphs))
+    return "\n".join(out)
+
+
+def read_edit_text(body):
+    """DefineEditText → {id, variable, text, font_height}."""
+    tid = struct.unpack_from("<H", body, 0)[0]
+    b = Bits(body, 2)
+    n = b.ub(5)
+    for _ in range(4):
+        b.sb(n)
+    b.align()
+    f1, f2 = b.u8(), b.u8()
+    p = b.pos
+    out = {"id": tid}
+    if f1 & 0x01:
+        p += 2
+    if f2 & 0x80:
+        p = body.index(b"\0", p) + 1
+    if f1 & 0x01 or f2 & 0x80:
+        out["font_height"] = struct.unpack_from("<H", body, p)[0] / 20
+        p += 2
+    if f1 & 0x04:
+        p += 4
+    if f1 & 0x02:
+        p += 2
+    if f2 & 0x20:
+        p += 9
+    e = body.index(b"\0", p)
+    out["variable"] = body[p:e].decode("latin1")
+    p = e + 1
+    if f1 & 0x80:
+        e = body.index(b"\0", p)
+        out["text"] = body[p:e].decode("utf-8", "replace")
+    return out
+
+
+def jpeg_size(data):
+    """JPEG verisinden (genişlik, yükseklik); bulunamazsa None."""
+    p = 0
+    while p + 9 <= len(data):
+        if data[p] != 0xFF:
+            p += 1
+            continue
+        marker = data[p + 1]
+        if marker in (0xC0, 0xC1, 0xC2):
+            h, w = struct.unpack_from(">HH", data, p + 5)
+            return w, h
+        if marker in (0xD8, 0xD9, 0x01) or 0xD0 <= marker <= 0xD7 or marker == 0xFF:
+            p += 2 if marker != 0xFF else 1
+            continue
+        p += 2 + struct.unpack_from(">H", data, p + 2)[0]
+    return None

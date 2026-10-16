@@ -10,6 +10,7 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import aktar  # noqa: E402
+import envanter  # noqa: E402
 import swf  # noqa: E402
 from swfstats import Bits  # noqa: E402
 
@@ -120,6 +121,53 @@ class Records(unittest.TestCase):
         self.assertEqual(records[0]["matrix"][4], 2.0)
 
 
+class Details(unittest.TestCase):
+    def test_sound(self):
+        # MP3 (2), 11 kHz (1), 16 bit, mono; 11025 örnek = 1 saniye
+        body = struct.pack("<H", 530) + bytes([(2 << 4) | (1 << 2) | 0b10]) + struct.pack("<I", 11025) + b"x" * 100
+        snd = swf.read_sound(body)
+        self.assertEqual((snd["id"], snd["format"], snd["rate"], snd["stereo"]), (530, "MP3", 11025, False))
+        self.assertAlmostEqual(snd["seconds"], 1.0)
+
+    def test_font_codes(self):
+        # DefineFont3, dar ofsetler, geniş kodlar; iki glif ('A', 'b'), boş glif şekilleri
+        name = b"Arial"
+        offsets = struct.pack("<HH", 6, 6) + struct.pack("<H", 6)  # 2 glif ofseti + kod tablosu ofseti
+        body = struct.pack("<H", 45) + bytes([0x04 | 0x01, 1, len(name)]) + name + struct.pack("<H", 2) + offsets \
+            + struct.pack("<HH", ord("A"), ord("b"))
+        fid, fname, bold, italic, codes = swf.read_font(body)
+        self.assertEqual((fid, fname, bold, italic, codes), (45, "Arial", True, False, [65, 98]))
+
+    def test_text_records_decode(self):
+        w = BitWriter()
+        w.ub(5, 1)
+        for _ in range(4):
+            w.sb(1, 0)
+        rect = w.bytes()
+        glyphs = BitWriter()
+        for g in (0, 1):
+            glyphs.ub(4, g)
+            glyphs.sb(8, 10)
+        record = bytes([0x80 | 0x08 | 0x02]) + struct.pack("<Hh", 45, 20) + struct.pack("<H", 240) + bytes([2]) + glyphs.bytes()
+        body = struct.pack("<H", 160) + rect + matrix_bytes() + bytes([4, 8]) + record + b"\0"
+        tid, lines = swf.read_text(body, False)
+        self.assertEqual(tid, 160)
+        self.assertEqual(swf.decode_text(lines, {45: [ord("O"), ord("K")]}), "OK")
+
+    def test_edit_text_initial_value(self):
+        w = BitWriter()
+        w.ub(5, 1)
+        for _ in range(4):
+            w.sb(1, 0)
+        body = struct.pack("<H", 799) + w.bytes() + bytes([0x80 | 0x01, 0]) + struct.pack("<HH", 2, 360) + b"\0" + b"OK\0"
+        self.assertEqual(swf.read_edit_text(body), {"id": 799, "font_height": 18.0, "variable": "", "text": "OK"})
+
+    def test_jpeg_size(self):
+        jpeg = b"\xff\xd8" + b"\xff\xe0" + struct.pack(">H", 4) + b"ab" + b"\xff\xc0" + struct.pack(">HBHH", 17, 8, 200, 800)
+        self.assertEqual(swf.jpeg_size(jpeg), (800, 200))
+        self.assertIsNone(swf.jpeg_size(b"\xff\xd8\xff\xd9"))
+
+
 class Reachability(unittest.TestCase):
     def test_children_and_reachable(self):
         m = swf.Movie.__new__(swf.Movie)
@@ -176,6 +224,12 @@ class Shapes(unittest.TestCase):
 
     def test_bitmap_filled_shape_is_skipped(self):
         self.assertIsNone(aktar.convert_shape('<svg><pattern><image href="x"/></pattern></svg>'))
+
+
+class Inventory(unittest.TestCase):
+    def test_strip_html(self):
+        html = '<p align="left"><font face="_sans"><b>Lv. 5</b><sbr />next</font></p>It&apos;s'
+        self.assertEqual(envanter.strip_html(html), "Lv. 5\nnext\nIt's")
 
 
 class Filters(unittest.TestCase):
