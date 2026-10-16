@@ -173,6 +173,7 @@ def read_place(body, code):
         op["clip"] = struct.unpack_from("<H", body, p)[0]
         p += 2
     if code == 70:
+        # PlaceObject3'te süzgeç ve karışım kırpma derinliğinden sonra, klip eylemlerinden önce gelir
         if flags2 & 0x01:
             op["filters"], p = read_filters(body, p)
         if flags2 & 0x02:
@@ -180,6 +181,9 @@ def read_place(body, code):
             p += 1
         if flags2 & 0x04:
             p += 1  # bit eşlem önbelleği: çizimi değiştirmez
+    if flags & 0x80:
+        # Klip eylemleri (onClipEvent): oyunun kodu; metni FFDec'in betik dökümündedir
+        op["clip_actions"] = True
     return op
 
 
@@ -257,7 +261,16 @@ class Movie:
         self.buttons = {}
         self.exports = {}
         self.root = Timeline()
+        self.tag_counts = {}
+        self.sprite_tag_counts = {}
+        self.text_bodies = {}
+        self.edit_text_bodies = {}
+        self.font_bodies = {}
+        self.csm = {}
+        self.sound_bodies = {}
+        self.other = []  # sahne bilgisi etiketleri: (kod, gövde)
         for code, body in tags(data, pos):
+            self.tag_counts[code] = self.tag_counts.get(code, 0) + 1
             cid = struct.unpack_from("<H", body, 0)[0] if len(body) >= 2 else None
             if code == 9:
                 self.background = "#%02X%02X%02X" % tuple(body[:3])
@@ -269,18 +282,25 @@ class Movie:
                 self.bitmaps.add(cid)
             elif code in TEXT_TAGS:
                 self.texts.add(cid)
+                self.text_bodies[cid] = (code, body)
             elif code == 37:
                 self.edit_texts.add(cid)
+                self.edit_text_bodies[cid] = body
             elif code in FONT_TAGS:
                 self.fonts.add(cid)
+                self.font_bodies[cid] = (code, body)
+            elif code == 74:
+                self.csm[cid] = read_csm(body)
             elif code == 14:
                 self.sounds.add(cid)
+                self.sound_bodies[cid] = body
             elif code == 34:
                 bid, records = read_button(body)
                 self.buttons[bid] = records
             elif code == 39:
                 t = Timeline()
                 for c2, b2 in tags(body, 4):
+                    self.sprite_tag_counts[c2] = self.sprite_tag_counts.get(c2, 0) + 1
                     t.add_tag(c2, b2)
                 self.sprites[cid] = t.finish()
             elif code == 56:
@@ -293,6 +313,8 @@ class Movie:
                     self.exports[body[p:e].decode("latin1")] = char
                     p = e + 1
             else:
+                if code in (69, 77, 41, 24, 58, 64, 65, 8):
+                    self.other.append((code, body))
                 self.root.add_tag(code, body)
         self.root.finish()
 
@@ -473,3 +495,98 @@ def jpeg_size(data):
             continue
         p += 2 + struct.unpack_from(">H", data, p + 2)[0]
     return None
+
+
+def read_text_full(body, rgba):
+    """DefineText(2) → yerleşimiyle bütün yazı: sınır, matris, kayıtlar (yazı tipi, renk, konum, boy,
+    glifler ve aralıkları)."""
+    tid = struct.unpack_from("<H", body, 0)[0]
+    b = Bits(body, 2)
+    n = b.ub(5)
+    xmin, xmax, ymin, ymax = (b.sb(n) / 20 for _ in range(4))
+    b.align()
+    matrix = read_matrix(b)
+    glyph_bits = b.u8()
+    advance_bits = b.u8()
+    records = []
+    while True:
+        flags = b.u8()
+        if flags == 0:
+            break
+        rec = {}
+        if flags & 0x08:
+            rec["font"] = b.u16()
+        if flags & 0x04:
+            rec["color"] = "#" + "".join("%02X" % b.u8() for _ in range(3))
+            if rgba:
+                rec["alpha"] = round(b.u8() / 255, 4)
+        if flags & 0x01:
+            rec["x"] = b.s16() / 20
+        if flags & 0x02:
+            rec["y"] = b.s16() / 20
+        if flags & 0x08:
+            rec["height"] = b.u16() / 20
+        count = b.u8()
+        glyphs = []
+        for _ in range(count):
+            g = b.ub(glyph_bits)
+            glyphs.append([g, b.sb(advance_bits) / 20])
+        b.align()
+        rec["glyphs"] = glyphs
+        records.append(rec)
+    return {"id": tid, "bounds": [xmin, ymin, xmax, ymax], "matrix": matrix, "records": records}
+
+
+def read_edit_text_full(body):
+    """DefineEditText → bütün özellikleriyle yazı alanı."""
+    tid = struct.unpack_from("<H", body, 0)[0]
+    b = Bits(body, 2)
+    n = b.ub(5)
+    xmin, xmax, ymin, ymax = (b.sb(n) / 20 for _ in range(4))
+    b.align()
+    f1, f2 = b.u8(), b.u8()
+    p = b.pos
+    out = {"id": tid, "bounds": [xmin, ymin, xmax, ymax]}
+    names = [("word_wrap", f1 & 0x40), ("multiline", f1 & 0x20), ("password", f1 & 0x10), ("read_only", f1 & 0x08),
+             ("auto_size", f2 & 0x40), ("no_select", f2 & 0x10), ("border", f2 & 0x08), ("was_static", f2 & 0x04),
+             ("html", f2 & 0x02), ("use_outlines", f2 & 0x01)]
+    out["flags"] = [k for k, on in names if on]
+    if f1 & 0x01:
+        out["font"] = struct.unpack_from("<H", body, p)[0]
+        p += 2
+    if f2 & 0x80:
+        e = body.index(b"\0", p)
+        out["font_class"] = body[p:e].decode("latin1")
+        p = e + 1
+    if f1 & 0x01 or f2 & 0x80:
+        out["font_height"] = struct.unpack_from("<H", body, p)[0] / 20
+        p += 2
+    if f1 & 0x04:
+        out["color"] = "#" + "".join("%02X" % v for v in body[p:p + 3])
+        out["alpha"] = round(body[p + 3] / 255, 4)
+        p += 4
+    if f1 & 0x02:
+        out["max_length"] = struct.unpack_from("<H", body, p)[0]
+        p += 2
+    if f2 & 0x20:
+        align, left, right, indent, leading = struct.unpack_from("<BHHHh", body, p)
+        out["layout"] = {"align": ["left", "right", "center", "justify"][align] if align < 4 else str(align),
+                         "left_margin": left / 20, "right_margin": right / 20, "indent": indent / 20,
+                         "leading": leading / 20}
+        p += 9
+    e = body.index(b"\0", p)
+    out["variable"] = body[p:e].decode("latin1")
+    p = e + 1
+    if f1 & 0x80:
+        e = body.index(b"\0", p)
+        out["text"] = body[p:e].decode("utf-8", "replace")
+    return out
+
+
+def read_csm(body):
+    """CSMTextSettings → yazının kenar yumuşatma ayarı."""
+    tid = struct.unpack_from("<H", body, 0)[0]
+    flags = body[2]
+    thickness, sharpness = struct.unpack_from("<ff", body, 3)
+    return {"text": tid, "flash_type": bool(flags >> 6 & 3), "grid_fit": ["none", "pixel", "subpixel"][(flags >> 3) & 3]
+            if (flags >> 3) & 3 < 3 else "?", "thickness": round(thickness, 4), "sharpness": round(sharpness, 4)}

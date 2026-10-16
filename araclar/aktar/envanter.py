@@ -95,30 +95,44 @@ def game_section(game, path):
     with open(os.path.join(aktar.ROOT, "content", "feudalism", game, "library.json"), encoding="utf-8") as f:
         lib = json.load(f)
     names = sprite_names(movie)
-    pending = lib["not_yet_supported"]
+    with open(os.path.join(aktar.ROOT, "kaynak", "feudalism", game, "manifest.json"), encoding="utf-8") as f:
+        man = json.load(f)
+    local = {k for k, v in man["characters"].items() if v["where"].startswith("yalnız yerel arşiv")}
+
+    def local_count(kind):
+        return sum(1 for k in local if man["characters"][k]["type"] == kind)
     game_exports = sorted(n for n in movie.exports if not aktar.is_component_export(n))
     components = sorted(n for n in movie.exports if aktar.is_component_export(n) and not n.startswith("__Packages."))
     classes = sorted(n[len("__Packages."):] for n in movie.exports if n.startswith("__Packages.")
                      and not n.startswith("__Packages.mx."))
+    code_files = sum(len(files) for _, _, files in os.walk(os.path.join(aktar.ROOT, "kaynak", "feudalism", game, "kod")))
     s = [f"## {NAMES[game]} ({game})", "",
          f"Sahne {movie.width:.0f}×{movie.height:.0f} piksel, saniyede {movie.rate:.0f} kare, arka plan "
          f"`{movie.background}`. Kaynak: `{lib['source']['file']}`.", "",
-         "| İçerik | Sayı | Durum |", "|---|---|---|",
-         f"| Şekil (vektör çizim) | {len(movie.shapes)} | {len(lib['shapes'])} aktarıldı; "
-         f"{len(pending['bitmap_filled_shapes'])} resim dolgulu şekil bekliyor |",
-         f"| Sprite (hareketli sembol) | {len(movie.sprites)} | {len(lib['sprites'])} aktarıldı (zaman çizelgesiyle) |",
-         f"| Düğme | {len(movie.buttons)} | {len(lib['buttons'])} aktarıldı |",
-         f"| Ekran (kök film karesi) | {len(movie.root.frames)} | aktarıldı |",
-         f"| Morph (biçim değiştiren şekil) | {len(movie.morphs)} | bekliyor |",
-         f"| Resim (bit eşlem) | {len(det.images)} | bekliyor |",
-         f"| Ses | {len(det.sounds)} | bekliyor |",
-         f"| Müzik | 0 | oyunda müzik yok |",
-         f"| Sabit yazı | {len(det.texts)} | bekliyor (Türkçeye çevrilip kendi yazı tiplerimizle çizilecek) |",
-         f"| Yazı alanı (oyunun doldurduğu) | {len(det.edit_texts)} | bekliyor |",
-         f"| Yazı tipi | {len(det.fonts)} | aktarılmayacak: lisansları yazı tipi yapımcılarında |",
-         f"| Oyun kodu (ActionScript 2 sınıfı) | {len(classes)} | görsel değil; oyun mantığı kendi kodumuzla yazılır |",
-         f"| Macromedia arayüz bileşeni | {len(components)} | aktarılmayacak: Adobe'nin; oyunda kullanılmıyor |",
-         f"| Sponsor logosu | {len(lib['excluded'])} | aktarılmayacak: sponsorun |", ""]
+         "| İçerik | Sayı | Oyuna aktarılan | Yalnız yerel arşivde (neden) |", "|---|---|---|---|",
+         f"| Şekil (vektör çizim) | {len(movie.shapes)} | {len(lib['shapes'])} vektör + {len(lib['bitmap_shapes'])} "
+         f"resim dolgulu | {local_count('shape')} (sponsor ya da Macromedia) |",
+         f"| Sprite (hareketli sembol) | {len(movie.sprites)} | {len(lib['sprites'])} | {local_count('sprite')} |",
+         f"| Düğme | {len(movie.buttons)} | {len(lib['buttons'])} | {local_count('button')} |",
+         f"| Morph (biçim değiştiren şekil) | {len(movie.morphs)} | {len(lib['morphs'])} (başlangıç ve bitiş) | "
+         f"{local_count('morph')} |",
+         f"| Ekran (kök film karesi) | {len(movie.root.frames)} | {len(lib['root']['frames'])} | – |",
+         f"| Resim (bit eşlem) | {len(det.images)} | {len(lib['images'])} | – |",
+         f"| Ses efekti | {len(det.sounds)} | {len(lib['sounds'])} | – |",
+         "| Müzik | 0 | oyunda müzik yok | – |",
+         f"| Sabit yazı | {len(det.texts)} | {len(movie.texts) - local_count('text')} (yerleşimiyle; Türkçeye çevrilecek) | "
+         f"{local_count('text')} |",
+         f"| Yazı alanı | {len(det.edit_texts)} | {len(movie.edit_texts) - local_count('edit_text')} (bütün özellikleriyle) | "
+         f"{local_count('edit_text')} |",
+         f"| Yazı tipi | {len(det.fonts)} | yalnız harf kodları | {len(det.fonts)} (lisans yazı tipi yapımcısında) |",
+         f"| Oyun kodu | {len(classes)} sınıf, {code_files} dosya | `kaynak/feudalism/{game}/kod` (oyuna gömülmez) | – |",
+         f"| Macromedia arayüz bileşeni | {len(components)} | – | "
+         f"{'hepsi (Adobe' + chr(39) + 'nin; oyunda kullanılmıyor)' if components else '–'} |",
+         f"| Sponsor parçası | {len(aktar.EXCLUDED[game])} sembol | – | "
+         f"{'hepsi (sponsorun)' if aktar.EXCLUDED[game] else '–'} |", "",
+         f"Eksik kalan karakter: {len(man['missing'])}. Tanınmayan etiket türü: "
+         f"{sum(1 for v in man['dispositions'].values() if v == 'TANINMAYAN ETİKET')}. Her karakterin ve her etiket "
+         f"türünün nereye gittiği: `kaynak/feudalism/{game}/manifest.json`.", ""]
     # Ekranlar
     s += ["### Ekranlar (kök film)", "", "| Kare | Ne |", "|---|---|"]
     labels = {f: lb for lb, f in movie.root.labels.items()}

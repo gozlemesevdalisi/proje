@@ -8,22 +8,24 @@ her birinin oyunumuza aktarılma durumu. Görseller hak sahibinin izniyle kullan
 
 Sahne 800×600 piksel, saniyede 30 kare, arka plan `#35567B`. Kaynak: `feudalism-orijinal.swf`.
 
-| İçerik | Sayı | Durum |
-|---|---|---|
-| Şekil (vektör çizim) | 1234 | 1159 aktarıldı; 19 resim dolgulu şekil bekliyor |
-| Sprite (hareketli sembol) | 246 | 194 aktarıldı (zaman çizelgesiyle) |
-| Düğme | 175 | 174 aktarıldı |
-| Ekran (kök film karesi) | 92 | aktarıldı |
-| Morph (biçim değiştiren şekil) | 16 | bekliyor |
-| Resim (bit eşlem) | 18 | bekliyor |
-| Ses | 16 | bekliyor |
-| Müzik | 0 | oyunda müzik yok |
-| Sabit yazı | 122 | bekliyor (Türkçeye çevrilip kendi yazı tiplerimizle çizilecek) |
-| Yazı alanı (oyunun doldurduğu) | 251 | bekliyor |
-| Yazı tipi | 15 | aktarılmayacak: lisansları yazı tipi yapımcılarında |
-| Oyun kodu (ActionScript 2 sınıfı) | 29 | görsel değil; oyun mantığı kendi kodumuzla yazılır |
-| Macromedia arayüz bileşeni | 0 | aktarılmayacak: Adobe'nin; oyunda kullanılmıyor |
-| Sponsor logosu | 1 | aktarılmayacak: sponsorun |
+| İçerik | Sayı | Oyuna aktarılan | Yalnız yerel arşivde (neden) |
+|---|---|---|---|
+| Şekil (vektör çizim) | 1234 | 1159 vektör + 19 resim dolgulu | 56 (sponsor ya da Macromedia) |
+| Sprite (hareketli sembol) | 246 | 223 | 23 |
+| Düğme | 175 | 174 | 1 |
+| Morph (biçim değiştiren şekil) | 16 | 11 (başlangıç ve bitiş) | 5 |
+| Ekran (kök film karesi) | 92 | 92 | – |
+| Resim (bit eşlem) | 18 | 18 | – |
+| Ses efekti | 16 | 16 | – |
+| Müzik | 0 | oyunda müzik yok | – |
+| Sabit yazı | 122 | 122 (yerleşimiyle; Türkçeye çevrilecek) | 0 |
+| Yazı alanı | 251 | 250 (bütün özellikleriyle) | 1 |
+| Yazı tipi | 15 | yalnız harf kodları | 15 (lisans yazı tipi yapımcısında) |
+| Oyun kodu | 29 sınıf, 622 dosya | `kaynak/feudalism/f1/kod` (oyuna gömülmez) | – |
+| Macromedia arayüz bileşeni | 0 | – | – |
+| Sponsor parçası | 1 sembol | – | hepsi (sponsorun) |
+
+Eksik kalan karakter: 0. Tanınmayan etiket türü: 0. Her karakterin ve her etiket türünün nereye gittiği: `kaynak/feudalism/f1/manifest.json`.
 
 ### Ekranlar (kök film)
 
@@ -119,22 +121,24 @@ Hepsi kısa ses efekti; müzik yok.
 
 Sahne 800×600 piksel, saniyede 30 kare, arka plan `#35567B`. Kaynak: `feudalism-2-orijinal.swf`.
 
-| İçerik | Sayı | Durum |
-|---|---|---|
-| Şekil (vektör çizim) | 2184 | 2116 aktarıldı; 31 resim dolgulu şekil bekliyor |
-| Sprite (hareketli sembol) | 441 | 266 aktarıldı (zaman çizelgesiyle) |
-| Düğme | 179 | 178 aktarıldı |
-| Ekran (kök film karesi) | 116 | aktarıldı |
-| Morph (biçim değiştiren şekil) | 25 | bekliyor |
-| Resim (bit eşlem) | 24 | bekliyor |
-| Ses | 16 | bekliyor |
-| Müzik | 0 | oyunda müzik yok |
-| Sabit yazı | 104 | bekliyor (Türkçeye çevrilip kendi yazı tiplerimizle çizilecek) |
-| Yazı alanı (oyunun doldurduğu) | 194 | bekliyor |
-| Yazı tipi | 16 | aktarılmayacak: lisansları yazı tipi yapımcılarında |
-| Oyun kodu (ActionScript 2 sınıfı) | 43 | görsel değil; oyun mantığı kendi kodumuzla yazılır |
-| Macromedia arayüz bileşeni | 85 | aktarılmayacak: Adobe'nin; oyunda kullanılmıyor |
-| Sponsor logosu | 0 | aktarılmayacak: sponsorun |
+| İçerik | Sayı | Oyuna aktarılan | Yalnız yerel arşivde (neden) |
+|---|---|---|---|
+| Şekil (vektör çizim) | 2184 | 2116 vektör + 31 resim dolgulu | 37 (sponsor ya da Macromedia) |
+| Sprite (hareketli sembol) | 441 | 352 | 89 |
+| Düğme | 179 | 178 | 1 |
+| Morph (biçim değiştiren şekil) | 25 | 25 (başlangıç ve bitiş) | 0 |
+| Ekran (kök film karesi) | 116 | 116 | – |
+| Resim (bit eşlem) | 24 | 24 | – |
+| Ses efekti | 16 | 16 | – |
+| Müzik | 0 | oyunda müzik yok | – |
+| Sabit yazı | 104 | 104 (yerleşimiyle; Türkçeye çevrilecek) | 0 |
+| Yazı alanı | 194 | 193 (bütün özellikleriyle) | 1 |
+| Yazı tipi | 16 | yalnız harf kodları | 16 (lisans yazı tipi yapımcısında) |
+| Oyun kodu | 43 sınıf, 1126 dosya | `kaynak/feudalism/f2/kod` (oyuna gömülmez) | – |
+| Macromedia arayüz bileşeni | 85 | – | hepsi (Adobe'nin; oyunda kullanılmıyor) |
+| Sponsor parçası | 0 sembol | – | – |
+
+Eksik kalan karakter: 0. Tanınmayan etiket türü: 0. Her karakterin ve her etiket türünün nereye gittiği: `kaynak/feudalism/f2/manifest.json`.
 
 ### Ekranlar (kök film)
 

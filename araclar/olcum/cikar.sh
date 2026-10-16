@@ -14,7 +14,9 @@
 #   4. Birlikler oyunun formülleriyle birleştirilir: referans/<oyun>/birlikler
 #   5. Kukla yapısı ve bütün karelerin eklemleri: olcum/kukla-<oyun>.json, referans/<oyun>/pozlar.json
 #   6. Parça ölçüleri: docs/KARAKTER_OLCULERI.md
-#   7. Görsellerin oyuna aktarımı: content/feudalism/<oyun> (bkz. araclar/aktar/aktar.py)
+#   7. Tam döküm (her içerik türü, XML dökümü, Flash projesi): referans/<oyun>/tam (git dışı)
+#   8. Oyuna aktarım: content/feudalism/<oyun>, kod ve liste kaynak/feudalism/<oyun>
+#      (bkz. araclar/aktar/aktar.py), döküm belgesi docs/FEUDALISM_ICERIK.md
 # Gerekenler: Java 17+, Python 3 + Pillow, curl, unzip, sha256sum, cargo.
 set -euo pipefail
 
@@ -64,5 +66,30 @@ for oyun in f1 f2; do
   SWF_KOK="$SWF_KOK" python3 araclar/olcum/kukla_yapisi.py "$oyun"
 done
 SWF_KOK="$SWF_KOK" python3 araclar/olcum/olc.py "$REF" docs/KARAKTER_OLCULERI.md
-echo "Görseller oyunun içerik klasörüne aktarılıyor (content/feudalism)..."
+for oyun in f1 f2; do
+  if [ "$oyun" = f1 ]; then swf="$SWF_KOK/oyunlar/feudalism/feudalism-orijinal.swf"; else swf="$SWF_KOK/oyunlar/feudalism-2/feudalism-2-orijinal.swf"; fi
+  T="$REF/$oyun/tam"
+  echo "$oyun: tam döküm (her içerik türü, XML dökümü, Flash projesi) → $T"
+  rm -rf "$T"
+  mkdir -p "$T"
+  # Türler ayrı ayrı: FFDec'in bir türdeki hatası öbürlerini durdurmasın
+  $FF -format shape:svg -export shape "$T" "$swf" 2>&1 | sessiz | tail -1
+  $FF -format morphshape:svg -export morphshape "$T" "$swf" 2>&1 | sessiz | tail -1
+  $FF -format morphshape:png_start_end -export morphshape "$T/morph-png" "$swf" 2>&1 | sessiz | tail -1
+  $FF -format image:png_gif_jpeg -export image "$T" "$swf" 2>&1 | sessiz | tail -1
+  $FF -format sound:mp3_wav -export sound "$T" "$swf" 2>&1 | sessiz | tail -1
+  $FF -format font:ttf -export font "$T" "$swf" 2>&1 | sessiz | tail -1
+  $FF -format text:formatted -export text "$T" "$swf" 2>&1 | sessiz | tail -1
+  $FF -format frame:png -export frame "$T" "$swf" 2>&1 | sessiz | tail -1
+  $FF -format button:png -export button "$T/buttons-png" "$swf" 2>&1 | sessiz | tail -1
+  $FF -format script:as -export script "$T" "$swf" 2>&1 | sessiz | tail -1
+  $FF -format script:pcode -export script "$T/pcode" "$swf" 2>&1 | sessiz | tail -1
+  $FF -export binaryData,symbolClass "$T" "$swf" 2>&1 | sessiz | tail -1
+  metinler=$(python3 -c "import sys; sys.path.insert(0, 'araclar/aktar'); import swf; print(','.join(str(i) for i in sorted(swf.Movie('$swf').texts)))")
+  $FF -format text:svg -selectid "$metinler" -export text "$T/text-svg" "$swf" 2>&1 | sessiz | tail -1
+  $FF -format xfl:cs5 -export xfl "$T/xfl" "$swf" 2>&1 | sessiz | tail -1
+  $FF -swf2xml "$swf" "$T/swf.xml" 2>&1 | sessiz | tail -1
+done
+echo "Görseller, sesler ve yazılar oyunun içerik klasörüne aktarılıyor (content/feudalism, kaynak/feudalism)..."
 python3 araclar/aktar/aktar.py "$SWF_KOK"
+python3 araclar/aktar/envanter.py "$SWF_KOK"

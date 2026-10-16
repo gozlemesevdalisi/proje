@@ -226,6 +226,61 @@ class Shapes(unittest.TestCase):
         self.assertIsNone(aktar.convert_shape('<svg><pattern><image href="x"/></pattern></svg>'))
 
 
+class Morphs(unittest.TestCase):
+    SVG = ('<svg xmlns="http://www.w3.org/2000/svg"><g><path d="M0 0" fill="url(#g)">'
+           '<animate attributeName="d" values="M0 0 L1 1;M0 0 L2 2"/></path></g><defs>'
+           '<linearGradient id="g" gradientTransform="matrix(2, 0, 0, 2, 10, 20)">'
+           '<animateTransform additive="replace" attributeName="gradientTransform" from="1" to="1" type="scale"/>'
+           '<animateTransform additive="sum" attributeName="gradientTransform" from="10 20" to="30 40" type="translate"/>'
+           '<animateTransform additive="sum" attributeName="gradientTransform" from="0" to="90" type="rotate"/>'
+           '<animateTransform additive="sum" attributeName="gradientTransform" from="2 2" to="1 1" type="scale"/>'
+           '<stop offset="0" stop-color="#000000"><animate attributeName="stop-color" values="#000000;#FFFFFF"/></stop>'
+           '</linearGradient></defs></svg>')
+
+    def test_start_and_end(self):
+        start = aktar.apply_animates(self.SVG, 0)
+        end = aktar.apply_animates(self.SVG, 1)
+        self.assertNotIn("animate", start + end)
+        self.assertIn('d="M0 0 L1 1"', start)
+        self.assertIn('d="M0 0 L2 2"', end)
+        self.assertIn('gradientTransform="matrix(2, 0, 0, 2, 10, 20)"', start)
+        self.assertIn('gradientTransform="matrix(0, 1, -1, 0, 30, 40)"', end)
+        self.assertIn('stop-color="#FFFFFF"', end)
+
+    def test_transform_matrix(self):
+        self.assertEqual(aktar.transform_matrix("translate", "3 4"), (1.0, 0.0, 0.0, 1.0, 3.0, 4.0))
+        self.assertEqual(aktar.transform_matrix("scale", "2"), (2.0, 0.0, 0.0, 2.0, 0.0, 0.0))
+        a, b, c, d, e, f = aktar.transform_matrix("skewX", "45")
+        self.assertAlmostEqual(c, 1.0)
+        with self.assertRaises(ValueError):
+            aktar.transform_matrix("wobble", "1")
+
+
+class TextRecords(unittest.TestCase):
+    def test_decode_records_lines_and_font_carry_over(self):
+        records = [{"font": 1, "y": 10, "glyphs": [[0, 5], [1, 5]]}, {"glyphs": [[2, 5]]}, {"y": 30, "glyphs": [[1, 5]]}]
+        self.assertEqual(aktar.decode_records(records, {1: [ord("O"), ord("K"), ord("!")]}), "OK!\nK")
+
+    def test_csm(self):
+        body = struct.pack("<H", 7) + bytes([(1 << 6) | (1 << 3)]) + struct.pack("<ff", 0.5, -1.0) + b"\0"
+        self.assertEqual(swf.read_csm(body), {"text": 7, "flash_type": True, "grid_fit": "pixel", "thickness": 0.5,
+                                              "sharpness": -1.0})
+
+    def test_clip_actions_flag(self):
+        body = bytes([0x02 | 0x80]) + struct.pack("<HH", 1, 9) + b"\0\0"
+        self.assertTrue(swf.read_place(body, 26)["clip_actions"])
+
+
+class Files(unittest.TestCase):
+    def test_find_file_by_id_or_id_and_name(self):
+        with tempfile.TemporaryDirectory() as d:
+            for name in ("930_slash.wav.mp3", "93.mp3", "530.mp3"):
+                open(os.path.join(d, name), "w").close()
+            self.assertTrue(aktar.find_file(d, 930, {".mp3"}).endswith("930_slash.wav.mp3"))
+            self.assertTrue(aktar.find_file(d, 93, {".mp3"}).endswith("93.mp3"))
+            self.assertIsNone(aktar.find_file(d, 5, {".mp3"}))
+
+
 class Inventory(unittest.TestCase):
     def test_strip_html(self):
         html = '<p align="left"><font face="_sans"><b>Lv. 5</b><sbr />next</font></p>It&apos;s'
