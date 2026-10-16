@@ -12,7 +12,11 @@ Alt komutlar:
   karsilastir <bizim.svg> [küme] [iskelet.json]
                              bizim çizimi kümenin aralıklarıyla karşılaştırır (geçti/kaldı tablosu);
                              iskelet verilirse oranlar ve poz özgünlüğü de denetlenir
-  ortusme <iskelet.json>     pozun en yakın 10 referansı (kahraman çizimleri ve bütün kukla kareleri)
+  ortusme <iskelet.json> [çizim.png]
+                             pozun en yakın 10 referansı (kahraman çizimleri ve bütün kukla kareleri);
+                             çizim verilirse en yakın 3 poz bizimkiyle üst üste çizilir
+  levha <çıktı.png> <öğe>... yan yana levha, figürler aynı boyda, %5'lik cetvel çizgileriyle;
+                             öğe: referans adı (f1/1112) ya da cizim.svg:iskelet.json
 
 SVG'ler motorun kendi çizicisiyle (engine/examples/svg-png) çizilir; referans da bizim çizim de aynı
 çiziciden geçer. Referans dosyaları referans/ klasöründedir (git dışı, bkz. cikar.sh).
@@ -376,6 +380,61 @@ def cetvel(svg_yolu, cikti, boy=1400):
     return cikti
 
 
+def levha(cikti, figurler, boy=900):
+    """Yan yana karşılaştırma levhası. `figurler`: [(etiket, svg yolu, (tepe_y, taban_y) svg biriminde)].
+    Her figür, baş tepesinden tabana `boy` piksel olacak biçimde çizilir; tepeler ve tabanlar aynı
+    hizaya gelir. Figür boyunun %5'i aralıklarla yatay (kırmızı) ve dikey (mavi) cetvel çizgileri."""
+    resimler = []
+    with tempfile.TemporaryDirectory() as td:
+        for i, (etiket, yol, (tepe, taban)) in enumerate(figurler):
+            olc = boy / (taban - tepe)
+            pn = os.path.join(td, f"{i}.png")
+            ciz(yol, pn, olc, "#FFFFFF")
+            resimler.append((etiket, Image.open(pn).convert("RGB"), tepe * olc))
+    ust_pay = max(t for _, _, t in resimler) + 50
+    alt_pay = max(im.height - t - boy for _, im, t in resimler) + 40
+    kenar, ara_ = 60, 40
+    gen = kenar + sum(im.width for _, im, _ in resimler) + ara_ * (len(resimler) - 1) + 20
+    tuval = Image.new("RGB", (int(gen), int(ust_pay + boy + alt_pay)), (255, 255, 255))
+    d = ImageDraw.Draw(tuval)
+    font = ImageFont.truetype(YAZI, 20)
+    x = kenar
+    for etiket, im, tepe in resimler:
+        tuval.paste(im, (int(x), int(ust_pay - tepe)))
+        d.text((x, 8), etiket, font=font, fill=(0, 0, 0))
+        x += im.width + ara_
+    adim = boy / 20
+    for i in range(21):
+        yy = ust_pay + i * adim
+        d.line([(kenar, yy), (gen - 10, yy)], fill=(255, 0, 0) if i % 2 == 0 else (255, 160, 160), width=1)
+        d.text((6, yy - 11), f"{i * 5}", font=font, fill=(200, 0, 0))
+    i = 0
+    while kenar + i * adim < gen - 10:
+        xx = kenar + i * adim
+        d.line([(xx, ust_pay), (xx, ust_pay + boy)], fill=(0, 0, 255) if i % 2 == 0 else (170, 170, 255), width=1)
+        i += 1
+    tuval.save(cikti)
+    return cikti
+
+
+def referans_boyu(ad):
+    """Referans figürün baş tepesi ve tabanı (SVG biriminde), isaretler.json'dan."""
+    with open(os.path.join(KOK, "olcum", "isaretler.json"), encoding="utf-8") as f:
+        isaret = json.load(f)["figurler"][ad]
+    oyun, no = ad.split("/")
+    yol = os.path.join(KOK, "referans", oyun, "svg", f"{no}.svg")
+    h = svg_boyu(yol)[1]
+    return yol, (isaret["bas_tepesi"][1] / 100 * h, isaret["taban"][1] / 100 * h)
+
+
+def iskelet_boyu(iskelet_yolu):
+    """Bizim çizimin baş tepesi ve tabanı (SVG biriminde): iskeletteki işaretler + kaydırma."""
+    with open(iskelet_yolu, encoding="utf-8") as f:
+        isk = json.load(f)
+    dy = isk.get("kaydirma", [0, 0])[1]
+    return isk["isaret"]["bas_tepesi"][1] + dy, isk["isaret"]["taban"][1] + dy
+
+
 # --- İşaretler ve oranlar --------------------------------------------------------------------
 
 def isaret_oranlari(f):
@@ -489,8 +548,8 @@ def aynala(p):
             "silah": None if p["silah"] is None else (180 - p["silah"]) % 180}
 
 
-def poz_uzakligi(a, b):
-    """İki pozun uzuv yönleri arasındaki ortalama açı farkı (derece); en elverişli eşleşmeyle."""
+def en_iyi_eslesme(a, b):
+    """İki poz en iyi nasıl üst üste oturuyor: (ortalama açı farkı, b'nin o eşleşmedeki hâli)."""
     en_iyi = None
     for bb in (b, aynala(b)):
         for kol_sira in ((0, 1), (1, 0)):
@@ -508,8 +567,62 @@ def poz_uzakligi(a, b):
                     farklar.append(aci_farki(a["silah"], bb["silah"], yari=True))
                 if farklar:
                     d = sum(farklar) / len(farklar)
-                    en_iyi = d if en_iyi is None else min(en_iyi, d)
+                    if en_iyi is None or d < en_iyi[0]:
+                        def sirala(g, sira):
+                            return [bb[g][j] for j in sira] if len(bb[g]) == 2 else bb[g]
+                        en_iyi = (d, {"govde": bb["govde"], "kol": sirala("kol", kol_sira),
+                                      "bacak": sirala("bacak", bacak_sira), "silah": bb["silah"]})
     return en_iyi
+
+
+def poz_uzakligi(a, b):
+    """İki pozun uzuv yönleri arasındaki ortalama açı farkı (derece); en elverişli eşleşmeyle."""
+    e = en_iyi_eslesme(a, b)
+    return None if e is None else e[0]
+
+
+def cop_adam(p, olcek=100.0, merkez=(0.0, 0.0)):
+    """Pozun uzuv yönlerinden çöp adam çizgileri (kalça merkezde; gövde 1, üst kol 0,55, ön kol 0,5,
+    uyluk ve baldır 0,75). Dönen: [(nokta1, nokta2)] piksel."""
+    def ileri(q, aci_, uz):
+        return (q[0] + math.cos(math.radians(aci_)) * uz * olcek, q[1] + math.sin(math.radians(aci_)) * uz * olcek)
+    kalca = merkez
+    boyun = ileri(kalca, p["govde"] if p["govde"] is not None else -90, 1.0)
+    cizgiler = [(kalca, boyun)]
+    eller = []
+    for ust, alt in p["kol"]:
+        dirsek = ileri(boyun, ust, 0.55)
+        cizgiler.append((boyun, dirsek))
+        if alt is not None:
+            el_ = ileri(dirsek, alt, 0.5)
+            cizgiler.append((dirsek, el_))
+            eller.append(el_)
+    for ust, alt in p["bacak"]:
+        diz = ileri(kalca, ust, 0.75)
+        cizgiler += [(kalca, diz), (diz, ileri(diz, alt, 0.75))]
+    if p["silah"] is not None and eller:
+        m = (sum(e[0] for e in eller) / len(eller), sum(e[1] for e in eller) / len(eller))
+        a = -p["silah"]  # silah açısı yataydan yukarı; ekranda y aşağı
+        cizgiler.append((ileri(m, a, -0.8), ileri(m, a, 0.8)))
+    return cizgiler
+
+
+def ortusme_cizimi(cikti, poz, adet=3):
+    """Pozu en yakın `adet` referansla üst üste çizer: bizim (kırmızı) ve referans (mavi)."""
+    yakinlar = sorted(((en_iyi_eslesme(poz, p), ad) for ad, p in referans_pozlar()), key=lambda x: x[0][0])[:adet]
+    pan = 320
+    tuval = Image.new("RGB", (pan * adet, pan + 40), (255, 255, 255))
+    d = ImageDraw.Draw(tuval)
+    font = ImageFont.truetype(YAZI, 16)
+    for i, ((uz, eslesen), ad) in enumerate(yakinlar):
+        m = (i * pan + pan / 2, pan * 0.55)
+        for renk, q, kalin in (((60, 90, 230), eslesen, 7), ((220, 30, 30), poz, 3)):
+            for a, b in cop_adam(q, 105, m):
+                d.line([a, b], fill=renk, width=kalin)
+        d.text((i * pan + 10, pan + 4), f"{ad}: {uz:.1f}°", font=font, fill=(0, 0, 0))
+    d.text((10, 6), "kırmızı: bizim poz   mavi: esinin en yakın pozu", font=font, fill=(0, 0, 0))
+    tuval.save(cikti)
+    return cikti
 
 
 def asimetri(p):
@@ -882,10 +995,24 @@ def main(argv):
             with open(argv[3], encoding="utf-8") as f:
                 isaret = json.load(f)["isaret"]
         print(karsilastirma_md(os.path.basename(argv[1]), karsilastir(argv[1], kume, isaret)))
+    elif komut == "levha":
+        # levha <çıktı.png> <öğe>...; öğe: f1/1112 (referans) ya da cizim.svg:iskelet.json (bizim)
+        figurler = []
+        for oge in argv[2:]:
+            if oge.endswith(".json"):
+                svg, isk = oge.split(":")
+                figurler.append((os.path.basename(svg), svg, iskelet_boyu(isk)))
+            else:
+                yol, tt = referans_boyu(oge)
+                figurler.append((oge, yol, tt))
+        print(levha(argv[1], figurler))
     elif komut == "ortusme":
-        # ortusme <isaret.json>: bir pozun en yakın referansları
+        # ortusme <iskelet.json> [çizim.png]: bir pozun en yakın referansları (isteğe bağlı çizimle)
         with open(argv[1], encoding="utf-8") as f:
-            print(json.dumps(ortusme(poz_isaretten(json.load(f)["isaret"]), 10), ensure_ascii=False, indent=1))
+            poz = poz_isaretten(json.load(f)["isaret"])
+        print(json.dumps(ortusme(poz, 10), ensure_ascii=False, indent=1))
+        if len(argv) > 2:
+            print(ortusme_cizimi(argv[2], poz))
     elif komut == "isaret":
         with open(os.path.join(KOK, "olcum", "isaretler.json"), encoding="utf-8") as f:
             isaret = json.load(f)

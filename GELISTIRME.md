@@ -35,6 +35,9 @@ Hepsi depo kökünde çalıştırılır.
 | Esin kaynağını çıkar (yalnız bu bilgisayarda) | `araclar/olcum/cikar.sh` → `referans/` (git dışı) |
 | Referans ölçüm raporu       | `python3 araclar/olcum/olcum.py rapor` → `olcum/sonuclar.md` |
 | Bir çizimi referansla karşılaştır | `python3 araclar/olcum/olcum.py karsilastir cizim.svg kahraman iskelet.json` |
+| Pozun özgünlüğü (ve üst üste çizimi) | `python3 araclar/olcum/olcum.py ortusme iskelet.json [cizim.png]` |
+| Yan yana levha (aynı boy, %5 cetvel) | `python3 araclar/olcum/olcum.py levha cikti.png f1/1112 f1/1110 cizim.svg:iskelet.json` |
+| Bozkır mızrakçısını üret     | `python3 tools/art/ciz_mizrakci.py` → `content/art/characters/`, `tools/art/iskelet/` |
 | Ölçüm aracının testleri     | `python3 -m unittest discover -s araclar/olcum -p 'test_*.py'` |
 | Sanat kurallarını denetle   | `cargo test -p game --test art_rules`                     |
 

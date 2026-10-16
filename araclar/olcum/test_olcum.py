@@ -122,6 +122,17 @@ class PozOzgunlugu(unittest.TestCase):
                  if isinstance(v, list) else v for k, v in f.items()}
         self.assertAlmostEqual(olcum.poz_uzakligi(olcum.poz_isaretten(f), olcum.poz_isaretten(buyuk)), 0, places=6)
 
+    def test_en_iyi_eslesme_aynayi_dondurur(self):
+        p = olcum.poz_isaretten(figur(dirsekler=[[30, 30], [62, 36]]))
+        d, eslesen = olcum.en_iyi_eslesme(p, olcum.aynala(p))
+        self.assertAlmostEqual(d, 0, places=6)
+        self.assertAlmostEqual(eslesen["kol"][0][0], p["kol"][0][0], places=6)
+
+    def test_cop_adam_govdesi_bir_birim(self):
+        p = olcum.poz_isaretten(figur())
+        (a, b), *_ = olcum.cop_adam(p, olcek=100)
+        self.assertAlmostEqual(math.dist(a, b), 100, places=6)
+
     def test_aci_farki_yari_turda(self):
         self.assertAlmostEqual(olcum.aci_farki(350, 10), 20)
         self.assertAlmostEqual(olcum.aci_farki(170, 10, yari=True), 20)
