@@ -5,7 +5,7 @@
 use std::error::Error;
 
 use engine::color::Color;
-use engine::glam::{Affine2, UVec2};
+use engine::glam::{Affine2, UVec2, Vec2};
 use engine::render::{DrawList, Renderer};
 use engine::svg::load_svg;
 use engine::tessellate::tessellate;
@@ -48,8 +48,16 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mesh = renderer.upload(&tessellate(&image, 0.05 / scale)?);
     let mut list = DrawList::new(background);
     list.draw(&mesh, Affine2::IDENTITY);
-    let px = (image.size * scale).round().as_uvec2().max(UVec2::ONE);
-    let png = renderer.render_to_image(&Viewport::fit(image.size, px), &list)?;
+    // Resim yukarı yuvarlanır ve mantıksal alan resmi tam kaplar: kenarda şerit kalmaz,
+    // saydam arka plan saydam kalır (ölçüm araçları yalnızca çizimin piksellerini sayar).
+    let px = (image.size * scale).ceil().as_uvec2().max(UVec2::ONE);
+    let viewport = Viewport {
+        logical: px.as_vec2() / scale,
+        physical: px,
+        scale,
+        offset: Vec2::ZERO,
+    };
+    let png = renderer.render_to_image(&viewport, &list)?;
     png.save_png(std::path::Path::new(output))?;
     println!("{output}: {}×{}", png.width, png.height);
     Ok(())

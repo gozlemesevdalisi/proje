@@ -32,6 +32,10 @@ Hepsi depo kökünde çalıştırılır.
 | Bir SVG'yi resme çiz        | `cargo run -p engine --example svg-png -- girdi.svg cikti.png 2` |
 | Örnek çizimleri yeniden üret | `python3 tools/art/ciz_birlikler.py` (ayrıca `ciz_manzara.py`, `ciz_pencere.py`) |
 | Karakter ölçülerini karşılaştır | `python3 tools/art/kukla_olc.py` (önce `araclar/olcum/cikar.sh`) |
+| Esin kaynağını çıkar (yalnız bu bilgisayarda) | `araclar/olcum/cikar.sh` → `referans/` (git dışı) |
+| Referans ölçüm raporu       | `python3 araclar/olcum/olcum.py rapor` → `olcum/sonuclar.md` |
+| Bir çizimi referansla karşılaştır | `python3 araclar/olcum/olcum.py karsilastir cizim.svg kahraman iskelet.json` |
+| Ölçüm aracının testleri     | `python3 -m unittest discover -s araclar/olcum -p 'test_*.py'` |
 | Sanat kurallarını denetle   | `cargo test -p game --test art_rules`                     |
 
 Çizimler elle değil, `tools/art/` içindeki betiklerle üretilir; betikler renkleri yalnızca

@@ -25,7 +25,7 @@ jobs:
       - name: Sistem paketlerini kur (yazılımla çalışan Vulkan sürücüsü dahil)
         run: |
           sudo apt-get update
-          sudo apt-get install -y mesa-vulkan-drivers libvulkan1 libx11-dev libxkbcommon-dev libwayland-dev
+          sudo apt-get install -y mesa-vulkan-drivers libvulkan1 libx11-dev libxkbcommon-dev libwayland-dev python3-pil
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: "1.99.0"
@@ -37,6 +37,8 @@ jobs:
         run: cargo clippy --workspace --all-targets -- -D warnings
       - name: Testler
         run: cargo test --workspace
+      - name: Ölçüm aracının testleri
+        run: python3 -m unittest discover -s araclar/olcum -p 'test_*.py'
       - name: Görüntü testlerinin çıktıları
         if: always()
         uses: actions/upload-artifact@v4

@@ -29,6 +29,11 @@ def yuvarla(v, n=3):
     return round(v, n)
 
 
+def y_ekseni(m):
+    n = math.hypot(m[2], m[3]) or 1.0
+    return [yuvarla(m[2] / n), yuvarla(m[3] / n)]
+
+
 def main(oyun):
     swf = Swf(olc.SWF[oyun], os.path.join(KOK, "referans", oyun, "svg"))
     insan = swf.spritelar[swf.disari["Human"]]
@@ -75,15 +80,25 @@ def main(oyun):
     with open(os.path.join(KOK, "olcum", f"kukla-{oyun}.json"), "w", encoding="utf-8") as f:
         json.dump(yapi, f, ensure_ascii=False, indent=1)
     # Bütün karelerin eklemleri (yalnızca örtüşme denetimi için; git dışı)
+    def etiket_bul(i):
+        ad = None
+        for e, bas in etiketler:
+            if bas <= i:
+                ad = e
+        return ad
+
     pozlar = []
     for i, kare in enumerate(govde.kareler):
         mats = {v["ad"]: v.get("matris", (1, 0, 0, 1, 0, 0)) for v in kare.values() if v.get("ad") in PARCA_ADLARI}
         if "legL" not in mats:
             continue
         kx, ky = mats["legL"][4], mats["legL"][5]
-        pozlar.append({"kare": i + 1, "eklem": {TURKCE[a]: [yuvarla((m[4] - kx) / bas_px), yuvarla((m[5] - ky) / bas_px),
-                                                             yuvarla(math.degrees(math.atan2(m[1], m[0])), 1)]
-                                                 for a, m in mats.items()}})
+        # Her parça: [x, y, açı, yerel y ekseninin yönü (birim vektör x, y)]. Kol ve baldırın ucu (el,
+        # ayak) eklemden bu yönde parçanın boyu kadar ileridedir (bkz. olcum.py poz).
+        pozlar.append({"kare": i + 1, "etiket": etiket_bul(i), "eklem": {
+            TURKCE[a]: [yuvarla((m[4] - kx) / bas_px), yuvarla((m[5] - ky) / bas_px),
+                        yuvarla(math.degrees(math.atan2(m[1], m[0])), 1)] + y_ekseni(m)
+            for a, m in mats.items()}})
     with open(os.path.join(KOK, "referans", oyun, "pozlar.json"), "w", encoding="utf-8") as f:
         json.dump(pozlar, f)
     print(f"{oyun}: {len(parcalar)} parça, {len(govde.kareler)} kare, {len(animasyon)} animasyon; baş {bas_px:.1f} px")
